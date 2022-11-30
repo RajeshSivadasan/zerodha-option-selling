@@ -77,7 +77,7 @@ if not os.path.exists("./log"):
 # Initialise logging and set console and error target as log file
 LOG_FILE = r"./log/kite_options_sell_" + datetime.datetime.now().strftime("%Y%m%d") +".log"
 # Uncomment below code to get the logs into the logfile 
-# sys.stdout = sys.stderr = open(LOG_FILE, "a") # use flush=True parameter in print statement if values are not seen in log file
+sys.stdout = sys.stderr = open(LOG_FILE, "a") # use flush=True parameter in print statement if values are not seen in log file
 
 
 
@@ -145,15 +145,15 @@ instruments = ["NSE:NIFTY 50","NSE:NIFTY BANK"]
 # ---------------------------------------------
 kite_users = []
 for user in multi_user_list:
-    # print(user.items())
-    # 'userid 'password''totpkey'
-    totp = pyotp.TOTP(user["totpkey"]).now()
-    twoFA = f"{int(totp):06d}" if len(totp) <=5 else totp
-    user_id = user["userid"]
     if user["active"]=="Y":     # Only consider users where active flag is Y
+        totp = pyotp.TOTP(user["totpkey"]).now()
+        twoFA = f"{int(totp):06d}" if len(totp) <=5 else totp
+        user_id = user["userid"]
+
         try:
             kite_users.append (KiteExt(user_id=user_id, password=user["password"], twofa=twoFA))
             iLog(f"[{user_id}] User Logged in successfuly.",True)
+            
         except Exception as e:
             iLog(f"[{user_id}] Unable to login user. Pls check credentials. {e}",True)
 
@@ -370,11 +370,13 @@ def place_option_orders(kiteuser,flgMeanReversion=False,flgPlaceSelectedOptionOr
     
     
     if df_orders.empty:
-        # Place both CE and PE orders if order is empty 
-        # Place Call orders
-        place_option_orders_CEPE(kiteuser,flgMeanReversion,dict_nifty_ce)
-        # Place Put orders
-        place_option_orders_CEPE(kiteuser,flgMeanReversion,dict_nifty_pe)
+        # Place Strangle order, both CE and PE Pivot orders if order is empty 
+        # Price is ltp-5 so that its executed as market order
+        # ======================
+        # Place CE and PEmarket order
+        # ======================
+        place_order(kiteuser,dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, float(dict_nifty_ce["last_price"] - 5 ))
+        place_order(kiteuser,dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, float(dict_nifty_pe["last_price"] - 5 ))
     
     else:
         if flgPlaceSelectedOptionOrder:
@@ -416,7 +418,6 @@ def place_option_orders_CEPE(kiteuser,flgMeanReversion,dict_opt):
     last_price = dict_opt["last_price"]
     tradingsymbol = dict_opt["tradingsymbol"]
     qty = nifty_opt_base_lot * nifty_opt_per_lot_qty
-
 
     if flgMeanReversion :
         #Put orders for mean reversion for existing positions while addding new positions 
