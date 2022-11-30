@@ -153,7 +153,7 @@ for user in multi_user_list:
         try:
             kite_users.append (KiteExt(user_id=user_id, password=user["password"], twofa=twoFA))
             iLog(f"[{user_id}] User Logged in successfuly.",True)
-            
+
         except Exception as e:
             iLog(f"[{user_id}] Unable to login user. Pls check credentials. {e}",True)
 
@@ -675,7 +675,10 @@ get_options()
 
 cur_HHMM = int(datetime.datetime.now().strftime("%H%M"))
 previous_min = 0
-iLog(f"Processing in {interval_seconds} seconds interval loop... {cur_HHMM}",True)
+if cur_HHMM > 914 and cur_HHMM < 1531:
+    iLog(f"Processing in {interval_seconds} seconds interval loop... {cur_HHMM}",True)
+else:
+    iLog(f"Non Market Hours... {cur_HHMM}",True)
 
 stratgy1_flg = False
 
@@ -713,4 +716,4 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
 
 iLog(f"====== End of Algo ====== @ {datetime.datetime.now()}",True)
 
-#4
+#5
