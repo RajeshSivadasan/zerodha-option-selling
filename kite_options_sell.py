@@ -376,7 +376,7 @@ def place_option_orders(kiteuser,flgMeanReversion=False,flgPlaceSelectedOptionOr
     
     
     if df_orders.empty:
-        # Thee can be BUY orders, so check in the else part if no sell orders place 
+        # This can be BUY orders, so check in the else part if no sell orders place 
         # Place immediate Strangle order, both CE and PE Pivot orders if order is empty 
         # Price is ltp-5 so that its executed as market order
         # ======================
@@ -392,9 +392,9 @@ def place_option_orders(kiteuser,flgMeanReversion=False,flgPlaceSelectedOptionOr
         if flgPlaceSelectedOptionOrder:
             tradingsymbol = dict_nifty_opt_selected["tradingsymbol"]
             if sum((df_orders.status=='OPEN') & (df_orders.transaction_type=='SELL') & (df_orders.tradingsymbol==tradingsymbol)) > 0:
-                
                 iLog(f"[{kiteuser.user_id}] In place_call_orders(): Existing order found for {tradingsymbol}, NO order will be placed.")
                 return
+
             else:
                 # Place orders for selected option
                 place_option_orders_CEPE(kiteuser,flgMeanReversion,dict_nifty_opt_selected) 
@@ -545,7 +545,9 @@ def place_order(kiteuser,tradingsymbol,qty,limit_price=None,transaction_type=kit
 
 
 def process_orders(kiteuser=kite,flg_place_orders=False):
-    '''Check the status of orders/squareoff/add positions'''
+    '''
+    Check the status of orders/squareoff/add positions
+    '''
     # FOr each users do the following:
     # 1. Check existing positions if any
     # 2. If no positions 
@@ -583,9 +585,10 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
         net_margin_utilised = sum(abs(df_pos.quantity/50)*nifty_avg_margin_req_per_lot)
         profit_target = round(net_margin_utilised * (profit_target_perc/100))
         mtm = round(sum(df_pos.mtm),2)
+        mtm_new = round(sum(df_pos.mtm_new),2)
 
         # position/quantity will be applicable for each symbol
-        iLog(strMsgSuffix + f" Existing position available. mtm={mtm}, approx. net_margin_utilised={net_margin_utilised}, profit_target={profit_target}",True)
+        iLog(strMsgSuffix + f" Existing position available. mtm={mtm}, mtm_new={mtm_new} approx. net_margin_utilised={net_margin_utilised}, profit_target={profit_target}",True)
 
         if mtm > profit_target:
             # Squareoff 80% (In Case of Large Qtys) of the positions 
@@ -649,12 +652,17 @@ def get_positions(kiteuser):
             df_pos = pd.DataFrame(dict_positions)[['tradingsymbol', 'exchange', 'instrument_token','quantity','sell_value','buy_value','last_price','multiplier','average_price']]
 
             df_pos = df_pos[df_pos.exchange=='NFO']
+
+            # Get latest ltp
+            df_pos["ltp"]=[val['last_price'] for keys, val in kite.ltp(df_pos.instrument_token).items()]
+
             # Get only the options and not equity or other instruments
             if df_pos.empty:
                 return pd.DataFrame([[0]],columns=['quantity'])
             else:
                 df_pos["mtm"] = ( df_pos.sell_value - df_pos.buy_value ) + (df_pos.quantity * df_pos.last_price * df_pos.multiplier)
-                return df_pos[['tradingsymbol','instrument_token','quantity','mtm']]
+                df_pos["mtm_new"] = ( df_pos.sell_value - df_pos.buy_value ) + (df_pos.quantity * df_pos.ltp * df_pos.multiplier)
+                return df_pos[['tradingsymbol','instrument_token','quantity','mtm','mtm_new']]
 
 
             # for pos in dict_positions:
@@ -741,4 +749,4 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
 
 iLog(f"====== End of Algo ====== @ {datetime.datetime.now()}",True)
 
-#6
+#7
