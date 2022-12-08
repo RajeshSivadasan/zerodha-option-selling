@@ -78,7 +78,7 @@ if not os.path.exists("./log"):
 # Initialise logging and set console and error target as log file
 LOG_FILE = r"./log/kite_options_sell_" + datetime.datetime.now().strftime("%Y%m%d") +".log"
 # Uncomment below code to get the logs into the logfile 
-# sys.stdout = sys.stderr = open(LOG_FILE, "a") # use flush=True parameter in print statement if values are not seen in log file
+sys.stdout = sys.stderr = open(LOG_FILE, "a") # use flush=True parameter in print statement if values are not seen in log file
 
 
 
@@ -597,7 +597,7 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
             for opt in df_pos.itertuples():
                 # Check if instrument options and position is sell and its mtm is greater than profit target amt
                 tradingsymbol = opt.tradingsymbol
-                qty = opt.qty
+                qty = opt.quantity
                 iLog(strMsgSuffix + f" tradingsymbol={tradingsymbol}, qty={qty}, opt.mtm={opt.mtm}, opt.profit_target_amt={opt.profit_target_amt}")
                 # Need to provision for partial profit booking
                 if (tradingsymbol[-2:] in ('CE','PE')) and (qty < 0) and (opt.mtm > opt.profit_target_amt) :
@@ -760,4 +760,4 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
 
 iLog(f"====== End of Algo ====== @ {datetime.datetime.now()}",True)
 
-#9
+#10
