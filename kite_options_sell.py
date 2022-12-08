@@ -1,4 +1,4 @@
-# Implement rollover ? 
+# Need to provision for partial profit booking
 # Code to delete log files older than 30 days
 # To get a list of latest instruments as csv dump, type in browser the below url:
 # https://api.kite.trade/instruments
@@ -585,30 +585,40 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
         net_margin_utilised = sum(abs(df_pos.quantity/50)*nifty_avg_margin_req_per_lot)
         profit_target = round(net_margin_utilised * (profit_target_perc/100))
         mtm = round(sum(df_pos.mtm),2)
-        mtm_new = round(sum(df_pos.mtm_new),2)
 
         # position/quantity will be applicable for each symbol
-        iLog(strMsgSuffix + f" Existing position available. mtm={mtm}, mtm_new={mtm_new} approx. net_margin_utilised={net_margin_utilised}, profit_target={profit_target}",True)
+        iLog(strMsgSuffix + f" Existing position available. Overall mtm={mtm} approx. net_margin_utilised={net_margin_utilised}, profit_target={profit_target}",True)
 
         if mtm > profit_target:
             # Squareoff 80% (In Case of Large Qtys) of the positions 
-            iLog(strMsgSuffix + " mtm > profit_target; Squareoff")
+            iLog(strMsgSuffix + " Overall mtm > profit_target; Squareoff")
             # df_SqOff = pd.DataFrame(kite.positions().get('net'))[['tradingsymbol','m2m','quantity']]
-            for indx in df_pos.index:
-                tradingsymbol = df_pos['tradingsymbol'][indx]
-                qty = df_pos['quantity'][indx] * -1
-                iLog(strMsgSuffix + f" tradingsymbol={tradingsymbol}, qty={qty}")
-                
-                # Square off only options
-                if tradingsymbol[-2:] in ('CE','PE') and (abs(qty)>0):
+            # Remove logging in loops
+            for opt in df_pos.itertuples():
+                # Check if instrument options and position is sell and its mtm is greater than profit target amt
+                tradingsymbol = opt.tradingsymbol
+                qty = opt.qty
+                iLog(strMsgSuffix + f" tradingsymbol={tradingsymbol}, qty={qty}, opt.mtm={opt.mtm}, opt.profit_target_amt={opt.profit_target_amt}")
+                # Need to provision for partial profit booking
+                if (tradingsymbol[-2:] in ('CE','PE')) and (qty < 0) and (opt.mtm > opt.profit_target_amt) :
                     iLog(strMsgSuffix + f" Placing Squareoff order for tradingsymbol={tradingsymbol}, qty={qty}",True)
+                    place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty*-1, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET)
+
+            # for indx in df_pos.index:
+            #     tradingsymbol = df_pos['tradingsymbol'][indx]
+            #     qty = df_pos['quantity'][indx] * -1
+            #     iLog(strMsgSuffix + f" tradingsymbol={tradingsymbol}, qty={qty}")
+                
+            #     # Square off only options
+            #     if tradingsymbol[-2:] in ('CE','PE') and (abs(qty)>0):
+            #         iLog(strMsgSuffix + f" Placing Squareoff order for tradingsymbol={tradingsymbol}, qty={qty}",True)
                     
-                    # Cancel any buy order already placed
+            #         # Cancel any buy order already placed
                     
-                    place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET)
+            #         place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET)
 
 
-            iLog(strMsgSuffix + " All Positions Squared Off")
+            iLog(strMsgSuffix + " All Positions should be Squared Off")
             # exit_algo()
         else:
                 # In case of existing positions Check if loss needs to be booked
@@ -623,7 +633,7 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
                         # Check if order is alredy there and pending
                         iLog(strMsgSuffix + " Apply Mean Reversion orders if not already present")
                 
-                iLog(strMsgSuffix + " Checking existing positions and applying Mean Reversion orders if not already present")
+                iLog(strMsgSuffix + " Checking existing positions and applying Mean Reversion orders if not already present and mtm<100")
                 
                 # Place mean reversion orders for the current positions irrespective of profit target achieved
                 for opt in df_pos.itertuples():
@@ -660,9 +670,10 @@ def get_positions(kiteuser):
             if df_pos.empty:
                 return pd.DataFrame([[0]],columns=['quantity'])
             else:
-                df_pos["mtm"] = ( df_pos.sell_value - df_pos.buy_value ) + (df_pos.quantity * df_pos.last_price * df_pos.multiplier)
-                df_pos["mtm_new"] = ( df_pos.sell_value - df_pos.buy_value ) + (df_pos.quantity * df_pos.ltp * df_pos.multiplier)
-                return df_pos[['tradingsymbol','instrument_token','quantity','mtm','mtm_new']]
+                # df_pos["mtm"] = ( df_pos.sell_value - df_pos.buy_value ) + (df_pos.quantity * df_pos.last_price * df_pos.multiplier)
+                df_pos["mtm"] = ( df_pos.sell_value - df_pos.buy_value ) + (df_pos.quantity * df_pos.ltp * df_pos.multiplier)
+                df_pos["profit_target_amt"] = (abs(df_pos.quantity/50)*nifty_avg_margin_req_per_lot) * (profit_target_perc/100)
+                return df_pos[['tradingsymbol','instrument_token','quantity','mtm','profit_target_amt']]
 
 
             # for pos in dict_positions:
@@ -749,4 +760,4 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
 
 iLog(f"====== End of Algo ====== @ {datetime.datetime.now()}",True)
 
-#7
+#9
