@@ -5,7 +5,7 @@ Zerodha Kite python based Multi user option selling Algo (Beta):
 
 <b><u>Highlights of the algo:</u></b>
 1. <b>virtual_trade</b> parameter if set to 1 in the kite_options_sell.ini file will not trigger orders to the exchange. It will just log the generated order details. Set this to 0 for realtime exchange execution of order.
-2. The algo uses pivot points to punch Nifty call orders at resistance/support levels. Parameterisation of this feature is in progress.
+2. The algo uses pivot points to punch Nifty call orders at resistance/support levels. Parameterisation to use fixed points or multipliers instead of Pivot points is in progress.
 3. The nifty call is selected based on the following .ini parameters:
   => <b>nifty_ce_max_price_limit</b> is the limit price for the call option
   => <b>next_week_expiry_days</b> is the list of days for which next week expiry needs to be selected insted of current week. E.g if this parameter is set to 3,4 
