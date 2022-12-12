@@ -1,5 +1,8 @@
+# Todo:
+# process_orders is messed up. Need restructuring
 # Need to provision for partial profit booking
 # profit_booking_perc
+# carry_till_expiry_price Might need a dict for all days of week settings
 # Code to delete log files older than 30 days
 # To get a list of latest instruments as csv dump, type in browser the below url:
 # https://api.kite.trade/instruments
@@ -30,12 +33,18 @@
 # Instead of Pivot point levels, use (open -  close) to see the % rise or fall and decide bias and 20/30/40/50 pts entry targets
 # So no need for getting historic data and all. 
 
-# Strategy 1 (Neutral Bias/Small Short Bias): Sell Both Call and Put at 10:08 AM of strike around 150  
+# Strategy 1 (Neutral Bias/Small Short Bias): Sell Both Call and Put at 11:30 AM of strike around 30 (configurable)  
 # Entry Criteria    : Entry post 10:30 AM to 12;
 # If crossed R3 sell next strike
 # Exit Criteria     : 1% of Margin used (1100 per lot) or 75% at first support   
 
-# Strategy 2 (Long Biased): 
+# Strategy 2 (Short Biased): Sell ATM CE
+# Entry Criteria    : Entry at 11:30 (when usually market has peaked out);
+# If crossed R3 sell next strike
+# Exit Criteria     : 1% of Margin used (1100 per lot) or 75% at first support
+
+
+# Strategy 3 (Long Biased): 
 # Entry (Option 1) :Sell at R2(Base Lot), at R3(Base Lot*1.5) , at R4(Base Lot*2)  
 # Entry (Option 2-Wed,Thu) :Sell at R2(Base Lot), at R2+30(Base Lot) , Sell next Strike at NextStrikPrice=Martek+5 (Base Lot) 
 # , at NextStrikPrice+30(Base Lot), at NextToNextStrikPrice(Market)+5(Base Lot),at NextToNextStrikPrice30(Base Lot)
@@ -44,10 +53,6 @@
 # or Use Golden Ratio (Fibonacci series) for entry prices
 
 # Exit Criteria    : Book 75% of Qty at 1% of Margin used (Rs 1200 per lot) or 75% at first support if profit is above
-
-# TO DO
-# net_margin_utilised =  (abs(pos)/50) * 100000   # lot size to be parameterised for nifty/bank
-
 
 # S/R Levels
 # --- R4
@@ -146,14 +151,20 @@ option_sell_type = cfg.get("info", "option_sell_type")
 
 dict_ord_sizing_lvls = eval(cfg.get("info", "ord_sizing_lvls"))
 
+# carry_till_expiry_price Might need a dict for all days of week settings
+carry_till_expiry_price = float(cfg.get("info", "carry_till_expiry_price"))  # 20
+
+stratgy2_enabled = int(cfg.get("info", "stratgy2_enabled"))
+
+stratgy2_entry_time = int(cfg.get("info", "stratgy2_entry_time"))
+
 all_variables = f"INI_FILE={INI_FILE} interval_seconds={interval_seconds} profit_target_perc={profit_target_perc} loss_limit_perc={loss_limit_perc}"\
     f" stratgy1_entry_time={stratgy1_entry_time} nifty_opt_base_lot={nifty_opt_base_lot}"\
-    f" nifty_ce_max_price_limit={nifty_ce_max_price_limit} nifty_pe_max_price_limit={nifty_pe_max_price_limit} \n***virtual_trade={virtual_trade}"
+    f" nifty_ce_max_price_limit={nifty_ce_max_price_limit} nifty_pe_max_price_limit={nifty_pe_max_price_limit}"\
+    f" carry_till_expiry_price={carry_till_expiry_price} stratgy2_enabled={stratgy2_enabled} stratgy2_entry_time={stratgy2_entry_time}"\
+    f" option_sell_type={option_sell_type} \n***virtual_trade={virtual_trade}"
 
 iLog("Settings used : " + all_variables,True)
-
-# Get NIfty and BankNifty instrument data
-instruments = ["NSE:NIFTY 50","NSE:NIFTY BANK"] 
 
 
 
@@ -177,9 +188,6 @@ if len(kite_users)<1:
     iLog(f"No users found in the multi_user_list {multi_user_list}",True)
     sys.exit(0)
 
-
-# for kiteuser in kite_users:
-#     print(kiteuser.profile())
 
 # Set kite object to the first user
 kite = kite_users[0]
@@ -220,9 +228,11 @@ lst_trading_levels =  dict_ord_sizing_lvls[datetime.date.today().isoweekday()]
 df = pd.DataFrame(kite.instruments("NFO"))
 df = df[ (df.segment=='NFO-OPT')  & (df.name=='NIFTY') & (df.expiry<datetime.date.today()+datetime.timedelta(16)) ]  
 
+# Get NIfty and BankNifty instrument data
+instruments = ["NSE:NIFTY 50","NSE:NIFTY BANK"] 
 
 # To find nifty open range to decide market bias (Long,Short,Neutral)
-nifty_olhc = kite.ohlc(instruments[0])
+# nifty_olhc = kite.ohlc(instruments[0])
 # WIP - Need to work on this
 
 # iLog(f"opt_instrument={opt_instrument}")
@@ -230,18 +240,8 @@ nifty_olhc = kite.ohlc(instruments[0])
 # iLog(f"nifty_opt_ohlc={nifty_opt_ohlc}")
 # iLog(f"nifty_olhc={nifty_olhc}")
 
-
-# Get Nifty ATM
-inst_ltp = kite.ltp(instruments)
-nifty_ltp = inst_ltp['NSE:NIFTY 50']['last_price']
-nifty_atm = round(int(nifty_ltp),-2)
-
-# Prepare the list of option stikes for entry 
-#--------------------------------------------
-# Get list of CE/PE strikes 1000 pts on either side of the ATM from option chain # & (df.strike%100==0)
-lst_nifty_opt = df[(df.name=='NIFTY') & (df.expiry==expiry_date) & ((df.strike>=nifty_atm-1000) & (df.strike<=nifty_atm+1000)) ].tradingsymbol.apply(lambda x:'NFO:'+x).tolist()
-# df = []
-# print(df.shape)
+# List of nifty options
+lst_nifty_opt = []
 
 
 # Dictionary to store single row of call /  put option details
@@ -249,17 +249,18 @@ dict_nifty_ce = {}
 dict_nifty_pe = {}
 dict_nifty_opt_selected = {} # for storing the details of existing older option position which needs reversion
 
-# # Declare Class for users
-# class MyUsers:
-#   def __init__(self, userid, password,totpkey):
-#     self.userid = userid
-#     self.password = password
-#     self.totpkey = totpkey
+
+
 
 
 ########################################################
 #        Declare Functions
 ########################################################
+def get_nifty_atm():
+    # Get Nifty ATM
+    # kite.ltp(instruments)[instruments[0]]["instrument_token"]
+    return round(int( kite.ltp(instruments)[instruments[0]]["last_price"] ),-2)
+
 
 def get_pivot_points(instrument_token):
     ''' Returns Pivot points dictionary for a given instrument token using previous day vaues
@@ -373,7 +374,7 @@ def get_options(instrument_token=None):
             dict_nifty_opt_selected = dict_pivot
             # update the ltp and tradingsymbol
             dict_nifty_opt_selected["last_price"] = kite.ltp(instrument_token)[str(instrument_token)]['last_price']
-            # dict_nifty_opt_selected["tradingsymbol"] = df_nifty_opt_selected.tradingsymbol[-1]
+            dict_nifty_opt_selected["tradingsymbol"] = df_nifty_opt_selected.tradingsymbol[-1]
             # iLog("dict_nifty_ce:=",dict_nifty_ce)
         
         else:
@@ -467,6 +468,7 @@ def place_option_orders_CEPE(kiteuser,flgMeanReversion,dict_opt):
         #Put orders for mean reversion for existing positions while addding new positions 
         # rng = (dict_nifty_ce["r2"] - dict_nifty_ce["r1"])/2
         if dict_opt["s2"] <= last_price < dict_opt["s1"] :
+            # S/R to Level Mapping: s1=0, pp=1, r1=2, r2=3, r3=4, r4=5
             # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["s1"]))
             # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["pp"]))
             # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r1"]))
@@ -475,6 +477,7 @@ def place_option_orders_CEPE(kiteuser,flgMeanReversion,dict_opt):
             # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]))
 
         elif dict_opt["s1"] <= last_price < dict_opt["pp"] :
+            # S/R to Level Mapping: pp=0, r1=1, r2=2, r3=3, r4=4
             # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["pp"]))
             # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r1"]))
             # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r2"]))
@@ -482,22 +485,25 @@ def place_option_orders_CEPE(kiteuser,flgMeanReversion,dict_opt):
             place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]))
 
         elif dict_opt["pp"] <= last_price < dict_opt["r1"] :
+            # S/R to Level Mapping: r1=0, r2=1, r3=2, r4=3
             # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r1"]))
             # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r2"]))
             place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r3"]))
             place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]))
 
         elif dict_opt["r1"] <= last_price < dict_opt["r2"] :
+            # S/R to Level Mapping: r2=0, r3=1, r4=2
             # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r2"]))
             # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r3"]))
             place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]))
 
         elif dict_opt["r2"] <= last_price < dict_opt["r3"] :
+            # S/R to Level Mapping: r3=0, r4=1
             # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r3"]))
             place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]))
 
         else:
-            iLog(f"[{kiteuser.user_id}] place_option_orders_CEPE(): Unable to find pivots and place order for {tradingsymbol}")
+            iLog(f"[{kiteuser.user_id}] place_option_orders_CEPE(): flgMeanReversion=True, Unable to find pivots and place order for {tradingsymbol}")
 
     else:
         # Regular orders for fresh positions or new position for next strike for mean reversion
@@ -540,7 +546,7 @@ def place_option_orders_CEPE(kiteuser,flgMeanReversion,dict_opt):
             place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]))
 
         else:
-            iLog(f"[{kiteuser.user_id}] place_option_orders_CEPE(): Unable to find pivots and place order for {tradingsymbol}")
+            iLog(f"[{kiteuser.user_id}] place_option_orders_CEPE(): flgMeanReversion=False, Unable to find pivots and place order for {tradingsymbol}")
 
 
 def place_order(kiteuser,tradingsymbol,qty,limit_price=None,transaction_type=kite.TRANSACTION_TYPE_SELL,order_type=kite.ORDER_TYPE_LIMIT,tag="Algo"):
@@ -630,7 +636,7 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
                 qty = opt.quantity
                 iLog(strMsgSuffix + f" tradingsymbol={tradingsymbol}, qty={qty}, opt.mtm={opt.mtm}, opt.profit_target_amt={opt.profit_target_amt}")
                 # Need to provision for partial profit booking
-                if (tradingsymbol[-2:] in ('CE','PE')) and (qty < 0) and (opt.mtm > opt.profit_target_amt) :
+                if (tradingsymbol[-2:] in ('CE','PE')) and (qty < 0) and (opt.mtm > opt.profit_target_amt)  and (opt.ltp > carry_till_expiry_price) :
                     iLog(strMsgSuffix + f" Placing Squareoff order for tradingsymbol={tradingsymbol}, qty={qty}",True)
                     place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty*-1, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET)
 
@@ -703,7 +709,7 @@ def get_positions(kiteuser):
                 # df_pos["mtm"] = ( df_pos.sell_value - df_pos.buy_value ) + (df_pos.quantity * df_pos.last_price * df_pos.multiplier)
                 df_pos["mtm"] = ( df_pos.sell_value - df_pos.buy_value ) + (df_pos.quantity * df_pos.ltp * df_pos.multiplier)
                 df_pos["profit_target_amt"] = (abs(df_pos.quantity/50)*nifty_avg_margin_req_per_lot) * (profit_target_perc/100)
-                return df_pos[['tradingsymbol','instrument_token','quantity','mtm','profit_target_amt']]
+                return df_pos[['tradingsymbol','instrument_token','quantity','mtm','profit_target_amt','ltp']]
 
 
             # for pos in dict_positions:
@@ -720,6 +726,22 @@ def get_positions(kiteuser):
     except Exception as ex:
         iLog(f"[{kiteuser.user_id}] Unable to fetch positions dataframe. Error : {ex}")
         return pd.DataFrame([[-1]],columns=['quantity'])   # Return empty dataframe
+
+
+def strategy2(kiteuser):
+    
+    # Below three steps to be done only once for all the users
+    nifty_atm_strike = get_nifty_atm()  # Get Sell nifty ATM
+
+    instrument_token = df[(df.strike==nifty_atm) & (df.expiry==expiry_date) & (df.instrument_type=='CE')].instrument_token.values[0]
+
+    # Get nifty atm ce into the dict_nifty_opt_selected
+    get_options(instrument_token)
+
+    # Place Order for nifty atm CE at strategy 2 timing, check if mean reversion is needed here or make it based on the day of the week
+    place_option_orders(kiteuser,True,True)
+
+
 
 def get_pcr():
     ''' Gets the current put call ratio for deciding market direction
@@ -749,8 +771,27 @@ def exit_algo():
 
 ######## Strategy 2: Sell CE at pivot resistance points , R2(qty=baselot) , R3(qty=baselot*2), R3(qty=baselot*3)
 
+
+
+
+# Get Nifty ATM
+nifty_atm = get_nifty_atm()
+
+# Prepare the list of option stikes for entry 
+#--------------------------------------------
+# Get list of CE/PE strikes 1000 pts on either side of the ATM from option chain # & (df.strike%100==0)
+lst_nifty_opt = df[(df.name=='NIFTY') & (df.expiry==expiry_date) & ((df.strike>=nifty_atm-1000) & (df.strike<=nifty_atm+1000)) ].tradingsymbol.apply(lambda x:'NFO:'+x).tolist()
+
+
+
 get_options()
 
+
+
+strategy2(kite)
+
+
+# Check current time
 cur_HHMM = int(datetime.datetime.now().strftime("%H%M"))
 previous_min = 0
 if cur_HHMM > 914 and cur_HHMM < 1531:
@@ -775,6 +816,12 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
         for kiteuser in kite_users:
             # Place CE orders if required which should be done at 10.30 AM (strategy1 time) or every n seconds if stratgy1_entry_time is 0
             process_orders(kiteuser,True)    
+    
+    elif stratgy2_enabled and stratgy2_entry_time==cur_HHMM:
+            iLog(f"Triggering Strategy2...")
+            stratgy2_enabled=0
+            strategy2(kite)     # Currently only called for the main kite user
+
     else:
         for kiteuser in kite_users:
             process_orders(kiteuser)
@@ -796,4 +843,4 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
 
 iLog(f"====== End of Algo ====== @ {datetime.datetime.now()}",True)
 
-#11
+#12
