@@ -369,12 +369,13 @@ def get_options(instrument_token=None):
         # iLog(f"Call/Put selected is : {df_nifty_opt_selected.tradingsymbol[-1]}({df_nifty_opt_selected.instrument_token[-1]}) last_price = {df_nifty_opt_selected.last_price[-1]}")
         # instrument_token = str(df_nifty_opt_selected.instrument_token[-1])
 
+
         dict_pivot = get_pivot_points(instrument_token)
         if dict_pivot:
             dict_nifty_opt_selected = dict_pivot
             # update the ltp and tradingsymbol
             dict_nifty_opt_selected["last_price"] = kite.ltp(instrument_token)[str(instrument_token)]['last_price']
-            dict_nifty_opt_selected["tradingsymbol"] = df_nifty_opt_selected.tradingsymbol[-1]
+            dict_nifty_opt_selected["tradingsymbol"] = df_nifty_opt_selected.tradingsymbol.values[0] 
             # iLog("dict_nifty_ce:=",dict_nifty_ce)
         
         else:
@@ -673,7 +674,7 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
                 
                 # Place mean reversion orders for the current positions irrespective of profit target achieved
                 for opt in df_pos.itertuples():
-                    iLog(strMsgSuffix + f" opt.tradingsymbol={opt.tradingsymbol} opt.mtm={opt.mtm}")
+                    iLog(strMsgSuffix + f" opt.tradingsymbol={opt.tradingsymbol} opt.instrument_token={opt.instrument_token} opt.mtm={opt.mtm}")
                     if opt.mtm<100:
                         get_options(opt.instrument_token)
                         if flg_place_orders:
@@ -792,7 +793,6 @@ get_options()
 
 
 
-
 # Check current time
 cur_HHMM = int(datetime.datetime.now().strftime("%H%M"))
 previous_min = 0
@@ -845,4 +845,4 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
 
 iLog(f"====== End of Algo ====== @ {datetime.datetime.now()}",True)
 
-#12
+#1
