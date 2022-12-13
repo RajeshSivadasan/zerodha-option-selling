@@ -6,7 +6,7 @@
 # Code to delete log files older than 30 days
 # To get a list of latest instruments as csv dump, type in browser the below url:
 # https://api.kite.trade/instruments
-# For calculatoin of option greeks using Black Scholes - https://www.youtube.com/watch?v=T6tI3hVks5I 
+# For calculation of option greeks using Black Scholes - https://www.youtube.com/watch?v=T6tI3hVks5I 
 
 # Script to be scheduled at 9:14 AM IST
 # Can run premarket advance and decline check to find the market sentiment
@@ -263,7 +263,7 @@ def get_nifty_atm():
 
 
 def get_pivot_points(instrument_token):
-    ''' Returns Pivot points dictionary for a given instrument token using previous day vaues
+    ''' Returns Pivot points dictionary for a given instrument token using previous day values
     '''
     from_date = datetime.date.today()-datetime.timedelta(days=5)
     to_date = datetime.date.today()-datetime.timedelta(days=1)
@@ -293,7 +293,7 @@ def get_pivot_points(instrument_token):
         return dict_ohlc
 
     except Exception as ex:
-        iLog(f"Unable to fetch pivor points for token {instrument_token}. Error : {ex}")
+        iLog(f"Unable to fetch pivot points for token {instrument_token}. Error : {ex}")
         return {}
 
 
@@ -318,8 +318,8 @@ def get_options(instrument_token=None):
 
 
     if instrument_token is None:
-        # Check if we can use Dask to parallelise the operations
-        # If no istrument token passed then get default options for both CE and PE
+        # Check if we can use Dask to parallelize the operations
+        # If no instrument token passed then get default options for both CE and PE
         # Get the CE/PE instrument data(instrument_token,last_price,type,symbol) where last_price is maximum but less than equal to option max price limit (e.g <=200)
         df_nifty_opt_ce = df_nifty_opt[(df_nifty_opt.type=='CE') & (df_nifty_opt.last_price==df_nifty_opt[(df_nifty_opt.type=='CE') & (df_nifty_opt.last_price<=nifty_ce_max_price_limit)].last_price.max())]
         df_nifty_opt_pe = df_nifty_opt[(df_nifty_opt.type=='PE') & (df_nifty_opt.last_price==df_nifty_opt[(df_nifty_opt.type=='PE') & (df_nifty_opt.last_price<=nifty_pe_max_price_limit)].last_price.max())]
@@ -626,21 +626,15 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
         # position/quantity will be applicable for each symbol
         iLog(strMsgSuffix + f" Existing position available. Overall mtm={mtm} approx. net_margin_utilised={net_margin_utilised}, profit_target={profit_target}",True)
 
+        # May be revised based on the overall profit strategy
+        # Book profit if any of the position has achieved the profit target
+        book_profit(df_pos)
+        
         if mtm > profit_target:
             # Squareoff 80% (In Case of Large Qtys) of the positions 
             iLog(strMsgSuffix + " Overall mtm > profit_target; Squareoff")
             # df_SqOff = pd.DataFrame(kite.positions().get('net'))[['tradingsymbol','m2m','quantity']]
-            # Remove logging in loops
-            for opt in df_pos.itertuples():
-                # Check if instrument options and position is sell and its mtm is greater than profit target amt
-                tradingsymbol = opt.tradingsymbol
-                qty = opt.quantity
-                iLog(strMsgSuffix + f" tradingsymbol={tradingsymbol}, qty={qty}, opt.mtm={opt.mtm}, opt.profit_target_amt={opt.profit_target_amt}")
-                # Need to provision for partial profit booking
-                if (tradingsymbol[-2:] in ('CE','PE')) and (qty < 0) and (opt.mtm > opt.profit_target_amt)  and (opt.ltp > carry_till_expiry_price) :
-                    iLog(strMsgSuffix + f" Placing Squareoff order for tradingsymbol={tradingsymbol}, qty={qty}",True)
-                    place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty*-1, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET)
-
+            # book_profit(df_pos)
             # for indx in df_pos.index:
             #     tradingsymbol = df_pos['tradingsymbol'][indx]
             #     qty = df_pos['quantity'][indx] * -1
@@ -655,7 +649,7 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
             #         place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET)
 
 
-            iLog(strMsgSuffix + " All Positions should be Squared Off")
+            # iLog(strMsgSuffix + " All Positions should be Squared Off")
             # exit_algo()
         else:
                 # In case of existing positions Check if loss needs to be booked
@@ -672,7 +666,7 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
                 
                 iLog(strMsgSuffix + " Checking existing positions and applying Mean Reversion orders if not already present and mtm<100")
                 
-                # Place mean reversion orders for the current positions irrespective of profit target achieved
+                # Check and Place mean reversion orders for the current positions
                 for opt in df_pos.itertuples():
                     iLog(strMsgSuffix + f" opt.tradingsymbol={opt.tradingsymbol} opt.instrument_token={opt.instrument_token} opt.mtm={opt.mtm}")
                     if opt.mtm<100:
@@ -680,7 +674,7 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
                         if flg_place_orders:
                             place_option_orders(kiteuser,True,True)
                         else:
-                            iLog(strMsgSuffix + "  Mean reversion orders will NOT be placed as flg_place_orders is false")
+                            iLog(strMsgSuffix + " Mean reversion orders will NOT be placed as flg_place_orders is false")
 
 
 def get_positions(kiteuser):
@@ -748,13 +742,35 @@ def strategy2(kiteuser):
 
 
 
+def book_profit(df_pos):
+    '''
+    Books profit based on the settings. Takes position dataframe as the mandatory parameter
+    '''
+    strMsgSuffix= " book_profit():"
+    iLog(strMsgSuffix + f"") 
+    
+    # Remove logging in loops
+    for opt in df_pos.itertuples():
+        # Check if instrument options and position is sell and its mtm is greater than profit target amt
+        tradingsymbol = opt.tradingsymbol
+        qty = opt.quantity
+        iLog(strMsgSuffix + f" tradingsymbol={tradingsymbol}, qty={qty}, opt.mtm={opt.mtm}, opt.profit_target_amt={opt.profit_target_amt}")
+        # Need to provision for partial profit booking
+        if (tradingsymbol[-2:] in ('CE','PE')) and (qty < 0) and (opt.mtm > opt.profit_target_amt)  and (opt.ltp > carry_till_expiry_price) :
+            iLog(strMsgSuffix + f" Placing Squareoff order for tradingsymbol={tradingsymbol}, qty={qty}",True)
+            place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty*-1, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET)
+
+
+
+
+
 def get_pcr():
     ''' Gets the current put call ratio for deciding market direction
     '''
     pass
 
 
-# Check if the stdout resetting works or not else remove this funciton
+# Check if the stdout resetting works or not else remove this function
 def exit_algo(): 
     iLog("In exit_algo(): Resetting stdout and stderr before exit")
 
@@ -765,7 +781,7 @@ def exit_algo():
 
 
 ######## Strategy 1: Sell both CE and PE @<=51
-# No SL, only Mean reversion(averaging) to be appied for leg with -ve MTM
+# No SL, only Mean reversion(averaging) to be applied for leg with -ve MTM
 
 # Mean reversion for leg with -ve MTM
 # -----------------------------------
@@ -845,4 +861,4 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
 
 iLog(f"====== End of Algo ====== @ {datetime.datetime.now()}",True)
 
-#1
+#2
