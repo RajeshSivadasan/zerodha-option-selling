@@ -730,10 +730,14 @@ def get_positions(kiteuser):
 
 def strategy2(kiteuser):
     
+    iLog(f"[{kiteuser.user_id}] strategy2():")
+
     # Below three steps to be done only once for all the users
     nifty_atm_strike = get_nifty_atm()  # Get Sell nifty ATM
 
-    instrument_token = df[(df.strike==nifty_atm) & (df.expiry==expiry_date) & (df.instrument_type=='CE')].instrument_token.values[0]
+    iLog(f"[{kiteuser.user_id}] strategy2(): nifty_atm_strike={nifty_atm_strike} expiry_date={expiry_date}")
+
+    instrument_token = df[(df.strike==nifty_atm_strike) & (df.expiry==expiry_date) & (df.instrument_type=='CE')].instrument_token.values[0]
 
     # Get nifty atm ce into the dict_nifty_opt_selected
     get_options(instrument_token)
@@ -787,8 +791,6 @@ lst_nifty_opt = df[(df.name=='NIFTY') & (df.expiry==expiry_date) & ((df.strike>=
 get_options()
 
 
-
-strategy2(kite)
 
 
 # Check current time
