@@ -1,5 +1,5 @@
 # Todo:
-# process_orders is messed up. Need restructuring
+# process_orders() need restructuring
 # Need to provision for partial profit booking
 # profit_booking_perc
 # carry_till_expiry_price Might need a dict for all days of week settings
