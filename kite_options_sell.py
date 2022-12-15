@@ -1,7 +1,7 @@
 # Todo:
 # process_orders() need restructuring
 # Need to provision for partial profit booking
-# profit_booking_perc
+# profit_booking_perc -> How much percent of position to be covered/squared off when profit_target_perc is met e.g 50%(50) 75%(75) 80%(80) 100%(100)    
 # carry_till_expiry_price Might need a dict for all days of week settings
 # Code to delete log files older than 30 days
 # To get a list of latest instruments as csv dump, type in browser the below url:
@@ -602,6 +602,7 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
     df_pos = get_positions(kiteuser)
     # iLog(f"df_pos={df_pos}")
     
+    
     pos = min(df_pos.quantity)
     # Check if there are no open positions
     if pos == -1:
@@ -615,16 +616,18 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
             place_option_orders(kiteuser)   # Place orders as per the stratefy designated time in the parameter 
         else:
             iLog(strMsgSuffix + f" No Positions found. New orders will NOT be placed as strategy1 time {stratgy1_entry_time} passed/not met.")
+    
     else:
         # Check if orders are there
         # if mtm is positive check if carry_till_expiry is true and 
         # Check if profit/loss target achieved
+        kite_margin = kiteuser.margins()["equity"]["utilised"]["debits"]
         net_margin_utilised = sum(abs(df_pos.quantity/50)*nifty_avg_margin_req_per_lot)
         profit_target = round(net_margin_utilised * (profit_target_perc/100))
         mtm = round(sum(df_pos.mtm),2)
 
         # position/quantity will be applicable for each symbol
-        iLog(strMsgSuffix + f" Existing position available. Overall mtm={mtm} approx. net_margin_utilised={net_margin_utilised}, profit_target={profit_target}",True)
+        iLog(strMsgSuffix + f" Existing position available. Overall mtm={mtm} approx. net_margin_utilised={net_margin_utilised}, profit_target={profit_target} kite_margin={kite_margin}",True)
 
         # May be revised based on the overall profit strategy
         # Book profit if any of the position has achieved the profit target
@@ -695,7 +698,9 @@ def get_positions(kiteuser):
             df_pos = df_pos[df_pos.exchange=='NFO']
 
             # Get latest ltp
-            df_pos["ltp"]=[val['last_price'] for keys, val in kite.ltp(df_pos.instrument_token).items()]
+            # df_pos["ltp"]=[val['last_price'] for keys, val in kite.ltp(df_pos.instrument_token).items()]
+            # dict_ltp = {value['instrument_token']:value['last_price'] for key, value in kite.ltp(df_pos.instrument_token).items()}
+            df_pos["ltp"]=df_pos.instrument_token.map({value['instrument_token']:value['last_price'] for key, value in kite.ltp(df_pos.instrument_token).items()})
 
             # Get only the options and not equity or other instruments
             if df_pos.empty:
@@ -754,13 +759,11 @@ def book_profit(df_pos):
         # Check if instrument options and position is sell and its mtm is greater than profit target amt
         tradingsymbol = opt.tradingsymbol
         qty = opt.quantity
-        iLog(strMsgSuffix + f" tradingsymbol={tradingsymbol}, qty={qty}, opt.mtm={opt.mtm}, opt.profit_target_amt={opt.profit_target_amt}")
+        iLog(strMsgSuffix + f" tradingsymbol={tradingsymbol} qty={qty} opt.ltp={opt.ltp} carry_till_expiry_price={carry_till_expiry_price} opt.mtm={opt.mtm} opt.profit_target_amt={opt.profit_target_amt}")
         # Need to provision for partial profit booking
         if (tradingsymbol[-2:] in ('CE','PE')) and (qty < 0) and (opt.mtm > opt.profit_target_amt)  and (opt.ltp > carry_till_expiry_price) :
             iLog(strMsgSuffix + f" Placing Squareoff order for tradingsymbol={tradingsymbol}, qty={qty}",True)
             place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty*-1, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET)
-
-
 
 
 
@@ -804,9 +807,10 @@ nifty_atm = get_nifty_atm()
 lst_nifty_opt = df[(df.name=='NIFTY') & (df.expiry==expiry_date) & ((df.strike>=nifty_atm-1000) & (df.strike<=nifty_atm+1000)) ].tradingsymbol.apply(lambda x:'NFO:'+x).tolist()
 
 
-
 get_options()
 
+# Test Area
+# process_orders(kite)
 
 
 # Check current time
@@ -861,4 +865,4 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
 
 iLog(f"====== End of Algo ====== @ {datetime.datetime.now()}",True)
 
-#2
+#3
