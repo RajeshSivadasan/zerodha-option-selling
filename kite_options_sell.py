@@ -128,6 +128,8 @@ interval_seconds = int(cfg.get("info", "interval_seconds"))   # 30
 # profit target percentage of the utilised margin
 profit_target_perc = float(cfg.get("info", "profit_target_perc"))  # 0.1 
 loss_limit_perc = float(cfg.get("info", "loss_limit_perc")) # 40
+
+stratgy1_enabled = int(cfg.get("info", "stratgy1_enabled"))
 stratgy1_entry_time = int(cfg.get("info", "stratgy1_entry_time"))
 
 
@@ -150,6 +152,7 @@ multi_user_list = list(eval(cfg.get("info", "multi_user_list")))
 option_sell_type = cfg.get("info", "option_sell_type")
 
 dict_ord_sizing_lvls = eval(cfg.get("info", "ord_sizing_lvls"))
+
 
 # carry_till_expiry_price Might need a dict for all days of week settings
 carry_till_expiry_price = float(cfg.get("info", "carry_till_expiry_price"))  # 20
@@ -208,7 +211,8 @@ kite = kite_users[0]
 # Get current/next week expiry 
 # ----------------------------
 # if today is tue or wed then use next expiry else use current expiry. .isoweekday() 1 = Monday, 2 = Tuesday
-if datetime.date.today().isoweekday()  in (next_week_expiry_days):  # next_week_expiry_days = 2,3,4 
+dow = datetime.date.today().isoweekday()    # Also used in placing orders 
+if dow  in (next_week_expiry_days):  # next_week_expiry_days = 2,3,4 
     expiry_date = datetime.date.today() + datetime.timedelta( ((3-datetime.date.today().weekday()) % 7)+7 )
 else:
     expiry_date = datetime.date.today() + datetime.timedelta( ((3-datetime.date.today().weekday()) % 7))
@@ -220,7 +224,8 @@ iLog(f"expiry_date = {expiry_date}")
 
 
 # Get the trading levels to be followed for the day .e.g on Friday only trade reversion 3rd or 4th levels to be safe
-lst_trading_levels =  dict_ord_sizing_lvls[datetime.date.today().isoweekday()]
+lst_ord_lvl =  dict_ord_sizing_lvls[dow]
+iLog(f"dow={dow} lst_ord_lvl={lst_ord_lvl}")
 
 
 # Will need to add banknifty here later if required
@@ -426,7 +431,7 @@ def place_option_orders(kiteuser,flgMeanReversion=False,flgPlaceSelectedOptionOr
                 iLog(f"[{kiteuser.user_id}] In place_call_orders(): Existing order found for {tradingsymbol}, NO order will be placed.")
                 return
 
-            else:
+            else: 
                 # Place orders for selected option
                 place_option_orders_CEPE(kiteuser,flgMeanReversion,dict_nifty_opt_selected) 
         else:
@@ -465,43 +470,55 @@ def place_option_orders_CEPE(kiteuser,flgMeanReversion,dict_opt):
     tradingsymbol = dict_opt["tradingsymbol"]
     qty = nifty_opt_base_lot * nifty_opt_per_lot_qty
 
+
+    # level 0 = immediate resistance level, level 1 = Next resistance level and so on  
     if flgMeanReversion :
         #Put orders for mean reversion for existing positions while addding new positions 
         # rng = (dict_nifty_ce["r2"] - dict_nifty_ce["r1"])/2
         if dict_opt["s2"] <= last_price < dict_opt["s1"] :
             # S/R to Level Mapping: s1=0, pp=1, r1=2, r2=3, r3=4, r4=5
             # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["s1"]))
-            # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["pp"]))
-            # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r1"]))
-            place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r2"]))
-            place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r3"]))
-            # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]))
+            if 1 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["pp"]))
+            if 2 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r1"]))
+            if 3 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r2"]))
+            if 4 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r3"]))
+            if 5 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]))
 
         elif dict_opt["s1"] <= last_price < dict_opt["pp"] :
             # S/R to Level Mapping: pp=0, r1=1, r2=2, r3=3, r4=4
             # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["pp"]))
-            # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r1"]))
-            # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r2"]))
-            place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r3"]))
-            place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]))
+            if 1 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r1"]))
+            if 2 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r2"]))
+            if 3 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r3"]))
+            if 4 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]))
+            if 5 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]) + ( float(dict_opt["r4"]) - float(dict_opt["r3"]) ) )
 
         elif dict_opt["pp"] <= last_price < dict_opt["r1"] :
             # S/R to Level Mapping: r1=0, r2=1, r3=2, r4=3
             # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r1"]))
-            # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r2"]))
-            place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r3"]))
-            place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]))
+            if 1 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r2"]))
+            if 2 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r3"]))
+            if 3 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]))
+            if 4 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]) + ( float(dict_opt["r4"]) - float(dict_opt["r3"]) ) )
+            if 5 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]) + 2*( float(dict_opt["r4"]) - float(dict_opt["r3"]) ) )
 
         elif dict_opt["r1"] <= last_price < dict_opt["r2"] :
             # S/R to Level Mapping: r2=0, r3=1, r4=2
             # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r2"]))
-            # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r3"]))
-            place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]))
+            if 1 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r3"]))
+            if 2 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]))
+            if 3 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]) + ( float(dict_opt["r4"]) - float(dict_opt["r3"]) ) )
+            if 4 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]) + 2*( float(dict_opt["r4"]) - float(dict_opt["r3"]) ) )
+            if 5 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]) + 3*( float(dict_opt["r4"]) - float(dict_opt["r3"]) ) )
 
         elif dict_opt["r2"] <= last_price < dict_opt["r3"] :
             # S/R to Level Mapping: r3=0, r4=1
             # place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r3"]))
-            place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]))
+            if 1 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]))
+            if 2 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]) + ( float(dict_opt["r4"]) - float(dict_opt["r3"]) ) )
+            if 3 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]) + 2*( float(dict_opt["r4"]) - float(dict_opt["r3"]) ) )
+            if 4 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]) + 3*( float(dict_opt["r4"]) - float(dict_opt["r3"]) ) )
+            if 5 in lst_ord_lvl: place_order(kiteuser,tradingsymbol,qty,float(dict_opt["r4"]) + 4*( float(dict_opt["r4"]) - float(dict_opt["r3"]) ) )
 
         else:
             iLog(f"[{kiteuser.user_id}] place_option_orders_CEPE(): flgMeanReversion=True, Unable to find pivots and place order for {tradingsymbol}")
@@ -727,8 +744,11 @@ def get_positions(kiteuser):
         iLog(f"[{kiteuser.user_id}] Unable to fetch positions dataframe. Error : {ex}")
         return pd.DataFrame([[-1]],columns=['quantity'])   # Return empty dataframe
 
-
+# Check if we need to set SL for this strategy
 def strategy2(kiteuser):
+    '''
+    Get ATM Strike and place Mean Reversion orders for CE/PE or both based on the Settings.
+    '''
     
     iLog(f"[{kiteuser.user_id}] strategy2():")
 
@@ -821,7 +841,6 @@ if cur_HHMM > 914 and cur_HHMM < 1531:
 else:
     iLog(f"Non Market Hours... {cur_HHMM}",True)
 
-stratgy1_flg = False
 
 # Process as per start and end of market timing
 while cur_HHMM > 914 and cur_HHMM < 1531:
@@ -832,9 +851,9 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
     
     t1 = time.time()
 
-    if (stratgy1_entry_time == cur_HHMM and stratgy1_flg == False) or stratgy1_entry_time == 0:
+    if stratgy1_enabled and stratgy1_entry_time==cur_HHMM:
         iLog(f"Triggering Strategy1...")
-        stratgy1_flg = True
+        stratgy1_enabled=0
         for kiteuser in kite_users:
             # Place CE orders if required which should be done at 10.30 AM (strategy1 time) or every n seconds if stratgy1_entry_time is 0
             process_orders(kiteuser,True)    
@@ -865,4 +884,4 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
 
 iLog(f"====== End of Algo ====== @ {datetime.datetime.now()}",True)
 
-#3
+#4
