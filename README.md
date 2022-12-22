@@ -1,8 +1,8 @@
 Zerodha Kite python based Multi user option selling Algo (Beta):
 ----------------------------------------------------------------
 1. kite_options_sell.py - Option Selling program based on short strangle (premium<=50, can be configured) and Mean Reversion approach.   
-2. kite_options_sell.ini - This .ini file is used by the above kite_options_sell.py for picking up its parameters.
-(Refer to <a href="https://github.com/RajeshSivadasan/zerodha-option-selling/blob/main/test.md">.ini configuration help</a> for detailed description and usage of the settings) 
+2. kite_options_sell.ini - This .ini file is used by the above kite_options_sell.py for picking up its parameters.<br>
+(Refer to <a href="https://github.com/RajeshSivadasan/zerodha-option-selling/blob/main/test.md">.ini configuration help</a> for detailed description and usage of the settings)<br>
 <b><u>Highlights of the algo:</u></b>
 1. <b>virtual_trade</b> parameter if set to 1 in the kite_options_sell.ini file will not trigger orders to the exchange. It will just log the generated order details. Set this to 0 for realtime exchange execution of order.
 2. The algo uses pivot points to punch Nifty call orders at resistance/support levels. Parameterisation to use fixed points or multipliers instead of Pivot points is in progress.
