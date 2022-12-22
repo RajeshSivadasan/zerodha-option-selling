@@ -1,4 +1,4 @@
-Description of setting and its usage:<br>
+<u>Description of setting and its usage:</u><br>
 [tokens]
 uid = XXXXXX    (User ID)<br>
 pwd = XXXXXX    (Password)<br>
