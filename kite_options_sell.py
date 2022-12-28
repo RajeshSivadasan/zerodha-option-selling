@@ -638,8 +638,9 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
     elif pos == 0:
         if flg_place_orders:
             iLog( strMsgSuffix + " No Positions found. New orders will be placed")
-            get_options()                   # Refresh call and put to be traded into the global variables
-            place_option_orders(kiteuser)   # Place orders as per the stratefy designated time in the parameter 
+            # Below is called only one time in the strategy1() before calling process_orders() for each user
+            # get_options()                 # Refresh call and put to be traded into the global variables
+            place_option_orders(kiteuser)   # Place orders as per the strategy designated time in the parameter 
         else:
             iLog(strMsgSuffix + f" No Positions found. New orders will NOT be placed as strategy1 time {stratgy1_entry_time} passed/not met.")
     
@@ -754,6 +755,21 @@ def get_positions(kiteuser):
     except Exception as ex:
         iLog(f"[{kiteuser['userid']}] Unable to fetch positions dataframe. Error : {ex}")
         return pd.DataFrame([[-1]],columns=['quantity'])   # Return empty dataframe
+
+
+def strategy1():
+    '''
+    Place CE/PE/BOTH orders as per the option type setting at strategy1 time (e.g 9.20 AM)
+    '''
+    
+    iLog(f"In strategy1():")
+    
+    get_options()   # Get the latest options as per the settings  
+    
+    for kiteuser in kite_users:
+        # Will need to give strike selection method (price based or ATM based)
+        process_orders(kiteuser,True)    
+
 
 # Check if we need to set SL for this strategy
 def strategy2(kiteuser):
@@ -875,6 +891,7 @@ def exit_algo():
     sys.exit(0)
 
 
+
 ######## Strategy 1: Sell both CE and PE @<=51
 # No SL, only Mean reversion(averaging) to be applied for leg with -ve MTM
 
@@ -924,10 +941,7 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
     if stratgy1_entry_time==cur_HHMM:
         stratgy1_entry_time = 0
         iLog(f"Triggering Strategy1...")
-        for kiteuser in kite_users:
-            # Place CE/PE/BOTH orders as per the option type setting at strategy1 time (e.g 10.30 AM)
-            # Will need to give strike selection method (price based or ATM based)
-            process_orders(kiteuser,True)    
+        strategy1()
     
     elif stratgy2_entry_time==cur_HHMM:
             # Seems to be redundant as this can be configured under settings and executed as main strategy(strategy 1)
