@@ -773,24 +773,7 @@ def strategy1():
 
 # Check if we need to set SL for this strategy
 def strategy2(kiteuser):
-    '''
-    Get ATM Strike and place Mean Reversion orders for CE/PE or both based on the Settings.
-    '''
-    
-    iLog(f"[{kiteuser['userid']}] strategy2():")
-
-    # Below three steps to be done only once for all the users
-    nifty_atm_strike = get_nifty_atm()  # Get Sell nifty ATM
-
-    iLog(f"[{kiteuser['userid']}] strategy2(): nifty_atm_strike={nifty_atm_strike} expiry_date={expiry_date}")
-
-    instrument_token = df[(df.strike==nifty_atm_strike) & (df.expiry==expiry_date) & (df.instrument_type=='CE')].instrument_token.values[0]
-
-    # Get nifty atm ce into the dict_nifty_opt_selected
-    get_options(instrument_token)
-
-    # Place Order for nifty atm CE at strategy 2 timing, check if mean reversion is needed here or make it based on the day of the week
-    place_option_orders(kiteuser,True,True)
+    pass
 
 
 def book_profit(kiteuser,df_pos):
@@ -943,12 +926,6 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
         iLog(f"Triggering Strategy1...")
         strategy1()
     
-    elif stratgy2_entry_time==cur_HHMM:
-            # Seems to be redundant as this can be configured under settings and executed as main strategy(strategy 1)
-            stratgy2_entry_time = 0
-            iLog(f"Triggering Strategy2...")
-            strategy2(kite)     # Currently only called for the main kite user
-
     elif eod_process_time==cur_HHMM:
         # Book profit at eod or loss in case expiry
         for kiteuser in kite_users:
