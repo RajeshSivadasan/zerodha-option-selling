@@ -6,7 +6,11 @@
 # To get a list of latest instruments as csv dump, type in browser the below url:
 # https://api.kite.trade/instruments
 # For calculation of option greeks using Black Scholes - https://www.youtube.com/watch?v=T6tI3hVks5I 
+# v1.0.0 Base Version, Fixed AttributeError: 'dict' object has no attribute 'margins'. Fixed potential plac_order error due to incorrect usage of kite object
+version = "1.0.0"
 
+
+# Autoupdate latest version from github
 # Script to be scheduled at 9:14 AM IST
 # Can run premarket advance and decline check to find the market sentiment
 #  
@@ -108,10 +112,10 @@ if log_to_file: sys.stdout = sys.stderr = open(LOG_FILE, "a") # use flush=True p
 
 
 strChatID = cfg.get("tokens", "chat_id")
-strBotToken = cfg.get("tokens", "options_bot_token")    #Bot include "bot" prefix in the token
+strBotToken = cfg.get("tokens", "bot_token")    #Bot include "bot" prefix in the token
 
 # Kept the below line here as telegram bot token is read from the .ini file in the above line 
-iLog(f"====== Starting Algo ====== @ {datetime.datetime.now()}",True)
+iLog(f"====== Starting Algo ({version}) ====== @ {datetime.datetime.now()}",True)
 iLog(f"Logging to file :{LOG_FILE}",True)
 
 nifty_ce_max_price_limit = int(cfg.get("info", "nifty_ce_max_price_limit")) # 51
@@ -136,9 +140,6 @@ nifty_opt_per_lot_qty = int(cfg.get("info", "nifty_opt_per_lot_qty"))   # 50
 nifty_avg_margin_req_per_lot = int(cfg.get("info", "nifty_avg_margin_req_per_lot"))
 
 
-multi_user_list = list(eval(cfg.get("info", "multi_user_list")))
-
-
 # carry_till_expiry_price Might need a dict for all days of week settings
 carry_till_expiry_price = float(cfg.get("info", "carry_till_expiry_price"))  # 20
 
@@ -149,18 +150,15 @@ carry_till_expiry_price = float(cfg.get("info", "carry_till_expiry_price"))  # 2
 option_sell_type = cfg.get("realtime", "option_sell_type")
 stratgy1_entry_time = int(cfg.get("realtime", "stratgy1_entry_time"))
 stratgy2_entry_time = int(cfg.get("realtime", "stratgy2_entry_time"))
-profit_target_perc = float(cfg.get("realtime", "profit_target_perc"))   # 0.1 
-loss_limit_perc = float(cfg.get("realtime", "loss_limit_perc"))         # 40
-virtual_trade = int(cfg.get("realtime", "virtual_trade"))   # 0 = Disabled - Trades will be executed in real; 1 = Enabled - No trades will be executed on exchange
 
 # profit_booking_qty_perc = int(cfg.get("info", "profit_booking_qty_perc"))  
 eod_process_time = int(cfg.get("info", "eod_process_time")) # Time at which the eod process needs to run. Usually final profit/loss booking(in case of expiry)
 
-all_variables = f"INI_FILE={INI_FILE} interval_seconds={interval_seconds} profit_target_perc={profit_target_perc} loss_limit_perc={loss_limit_perc}"\
+all_variables = f"INI_FILE={INI_FILE} interval_seconds={interval_seconds}"\
     f" stratgy1_entry_time={stratgy1_entry_time} nifty_opt_base_lot={nifty_opt_base_lot}"\
     f" nifty_ce_max_price_limit={nifty_ce_max_price_limit} nifty_pe_max_price_limit={nifty_pe_max_price_limit}"\
     f" carry_till_expiry_price={carry_till_expiry_price} stratgy2_entry_time={stratgy2_entry_time}"\
-    f" option_sell_type={option_sell_type} \n***virtual_trade={virtual_trade}"
+    f" option_sell_type={option_sell_type}"
 
 iLog("Settings used : " + all_variables,True)
 
@@ -169,25 +167,35 @@ iLog("Settings used : " + all_variables,True)
 # Login and get kite objects for multiple users 
 # ---------------------------------------------
 kite_users = []
-for user in multi_user_list:
-    if user["active"]=="Y":     # Only consider users where active flag is Y
-        totp = pyotp.TOTP(user["totpkey"]).now()
-        twoFA = f"{int(totp):06d}" if len(totp) <=5 else totp
-        user_id = user["userid"]
+for section in cfg.sections():
+    user={}
+    if section[0:5]=='user-':
+        if  cfg.get(section, "active")=='Y':
+            user['userid'] = cfg.get(section, "userid")
+            user['password'] = cfg.get(section, "password")
+            user['totp_key'] = cfg.get(section, "totp_key")
+            user['profit_target_perc'] = int(cfg.get(section, "profit_target_perc"))
+            user['loss_limit_perc'] = int(cfg.get(section, "loss_limit_perc"))
+            user['profit_booking_qty_perc'] = int(cfg.get(section, "profit_booking_qty_perc"))
+            user['virtual_trade'] = int(cfg.get(section, "virtual_trade"))
 
-        try:
-            # kite_users.append (KiteExt(user_id=user_id, password=user["password"], twofa=twoFA))
-            # Add the kite user object to the users list 
-            user["kite_object"]= KiteExt(user_id=user_id, password=user["password"], twofa=twoFA)
-            user["partial_profit_booking_flg"]=0    # Initialise partial profit booking flag; Set this to 1 if partial profit booking is done.
-            kite_users.append(user)
-            iLog(f"[{user_id}] User Logged in successfuly.",True)
+            try:
+                totp = pyotp.TOTP(user["totp_key"]).now()
+                twoFA = f"{int(totp):06d}" if len(totp) <=5 else totp
+                user_id = user["userid"]
+                # Add the kite user object to the users list 
+                user["kite_object"]= KiteExt(user_id=user_id, password=user["password"], twofa=twoFA)
+                user["partial_profit_booking_flg"]=0    # Initialise partial profit booking flag; Set this to 1 if partial profit booking is done.
+                kite_users.append(user)
+                iLog(f"[{user_id}] User Logged in successfuly.",True)
 
-        except Exception as e:
-            iLog(f"[{user_id}] Unable to login user. Pls check credentials. {e}",True)
+            except Exception as e:
+                iLog(f"[{user_id}] Unable to login user. Pls check credentials. {e}",True)
+
+
 
 if len(kite_users)<1:
-    iLog(f"No users found in the multi_user_list {multi_user_list}",True)
+    iLog(f"Unable to load or No users found in the .ini file",True)
     sys.exit(0)
 
 
@@ -579,7 +587,7 @@ def place_option_orders_CEPE(kiteuser,flgMeanReversion,dict_opt):
 def place_order(kiteuser,tradingsymbol,qty,limit_price=None,transaction_type=kite.TRANSACTION_TYPE_SELL,order_type=kite.ORDER_TYPE_LIMIT,tag="kite_options_sell"):
     
     # Place orders for all users
-    if virtual_trade:
+    if kiteuser['virtual_trade']:
         iLog(f"[{kiteuser['userid']}] place_order(): Placing virtual order : tradingsymbol={tradingsymbol}, qty={qty}, limit_price={limit_price}, transaction_type={transaction_type}",True )
         return 
     else:
@@ -587,7 +595,7 @@ def place_order(kiteuser,tradingsymbol,qty,limit_price=None,transaction_type=kit
     
     # If not virtual trade, execute order on exchange
     try:
-        order_id = kiteuser.place_order(variety=kite.VARIETY_REGULAR,
+        order_id = kiteuser["kite_object"].place_order(variety=kite.VARIETY_REGULAR,
                             exchange=kite.EXCHANGE_NFO,
                             tradingsymbol=tradingsymbol,
                             transaction_type=transaction_type,
@@ -596,8 +604,7 @@ def place_order(kiteuser,tradingsymbol,qty,limit_price=None,transaction_type=kit
                             order_type=order_type,
                             price=limit_price,
                             validity=kite.VALIDITY_DAY,
-                            tag=tag
-                            )
+                            tag=tag )
 
         iLog(f"[{kiteuser['userid']}] place_order(): Order Placed. order_id={order_id}",True)
         return order_id
@@ -648,9 +655,9 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
         # Check if orders are there
         # if mtm is positive check if carry_till_expiry is true and 
         # Check if profit/loss target achieved
-        kite_margin = kiteuser.margins()["equity"]["utilised"]["debits"]
+        kite_margin = kiteuser["kite_object"].margins()["equity"]["utilised"]["debits"]
         net_margin_utilised = sum(abs(df_pos.quantity/50)*nifty_avg_margin_req_per_lot)
-        profit_target = round(net_margin_utilised * (profit_target_perc/100))
+        profit_target = round(net_margin_utilised * (kiteuser['profit_target_perc']/100))
         mtm = round(sum(df_pos.mtm),2)
 
         # position/quantity will be applicable for each symbol
@@ -683,6 +690,7 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
             # exit_algo()
         else:
                 # In case of existing positions Check if loss needs to be booked
+                loss_limit_perc = kiteuser['loss_limit_perc']
                 current_mtm_perc = round((mtm / net_margin_utilised)*100,1)
                 iLog(strMsgSuffix + f" MTM {mtm} less than target profit{profit_target}. current_mtm_perc={current_mtm_perc}, loss_limit_perc={loss_limit_perc}",True)
                 
@@ -845,7 +853,7 @@ def get_realtime_config():
     ''''
     Set the realtime configuration parmeters after each minute 
     '''
-    global option_sell_type, stratgy1_entry_time, stratgy2_entry_time, profit_target_perc, loss_limit_perc, virtual_trade
+    global option_sell_type, stratgy1_entry_time, stratgy2_entry_time
 
     iLog("Getting Realtime config parameter") 
     cfg.read(INI_FILE)
@@ -853,9 +861,6 @@ def get_realtime_config():
     option_sell_type = cfg.get("realtime", "option_sell_type")
     stratgy1_entry_time = int(cfg.get("realtime", "stratgy1_entry_time"))
     stratgy2_entry_time = int(cfg.get("realtime", "stratgy2_entry_time"))
-    profit_target_perc = float(cfg.get("realtime", "profit_target_perc"))   # 0.1 
-    loss_limit_perc = float(cfg.get("realtime", "loss_limit_perc")) 
-    virtual_trade = int(cfg.get("realtime", "virtual_trade"))
 
 
 def get_pcr():
@@ -955,4 +960,4 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
 
 iLog(f"====== End of Algo ====== @ {datetime.datetime.now()}",True)
 
-#7
+#9
