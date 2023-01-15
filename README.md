@@ -2,7 +2,7 @@ Zerodha Kite python based Multi user option selling Algo (Beta):
 ----------------------------------------------------------------
 1. kite_options_sell.py - Option Selling program based on short strangle (premium<=50, can be configured) and Mean Reversion approach.   
 2. kite_options_sell.ini - This .ini file is used by the above kite_options_sell.py for picking up its parameters.<br>
-(Refer to <a href="https://github.com/RajeshSivadasan/zerodha-option-selling/blob/main/settings.md">.ini configuration help</a> for detailed description and usage of the settings)<br>
+
 
 
 <b>Highlights of the algo:</b>
