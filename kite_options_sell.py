@@ -3,11 +3,13 @@
 # If dow is 5,1,2 and MTM is below -1% then no order to be placed that day and wait for next day
 # carry_till_expiry_price ? Do we really need this setting? What is the tradeoff?
 # Code to delete log files older than 30 days
-# To get a list of latest instruments as csv dump, type in browser the below url:
-# https://api.kite.trade/instruments
 # For calculation of option greeks using Black Scholes - https://www.youtube.com/watch?v=T6tI3hVks5I 
+# Autoupdate: https://www.gkbrk.com/wiki/python-self-update/ ; https://gist.github.com/gesquive/8363131 ; 
+
+
 # v1.0.0 Base Version, Fixed AttributeError: 'dict' object has no attribute 'margins'. Fixed potential plac_order error due to incorrect usage of kite object
-version = "1.0.0"
+# 1.0.1 Fixed KeyError: 'partial_profit_booked_flg' at line 796, Updated process_orders() to telegram mtm for each user. Check if processing is delayed and is needed 
+version = "1.0.1"
 
 
 # Autoupdate latest version from github
@@ -56,18 +58,6 @@ version = "1.0.0"
 # or Use Golden Ratio (Fibonacci series) for entry prices
 
 # Exit Criteria    : Book 75% of Qty at 1% of Margin used (Rs 1200 per lot) or 75% at first support if profit is above
-
-# S/R Levels
-# --- R4
-# --- R3
-# --- R2
-# --- R1
-# --- PP
-# --- S1
-# --- S2
-# --- S3
-# --- S4
-
 
 import pyotp
 from kiteext import KiteExt
@@ -174,8 +164,8 @@ for section in cfg.sections():
             user['userid'] = cfg.get(section, "userid")
             user['password'] = cfg.get(section, "password")
             user['totp_key'] = cfg.get(section, "totp_key")
-            user['profit_target_perc'] = int(cfg.get(section, "profit_target_perc"))
-            user['loss_limit_perc'] = int(cfg.get(section, "loss_limit_perc"))
+            user['profit_target_perc'] = float(cfg.get(section, "profit_target_perc"))
+            user['loss_limit_perc'] = float(cfg.get(section, "loss_limit_perc"))
             user['profit_booking_qty_perc'] = int(cfg.get(section, "profit_booking_qty_perc"))
             user['virtual_trade'] = int(cfg.get(section, "virtual_trade"))
 
@@ -185,7 +175,7 @@ for section in cfg.sections():
                 user_id = user["userid"]
                 # Add the kite user object to the users list 
                 user["kite_object"]= KiteExt(user_id=user_id, password=user["password"], twofa=twoFA)
-                user["partial_profit_booking_flg"]=0    # Initialise partial profit booking flag; Set this to 1 if partial profit booking is done.
+                user["partial_profit_booked_flg"]=0    # Initialise partial profit booking flag; Set this to 1 if partial profit booking is done.
                 kite_users.append(user)
                 iLog(f"[{user_id}] User Logged in successfuly.",True)
 
@@ -650,7 +640,9 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
             place_option_orders(kiteuser)   # Place orders as per the strategy designated time in the parameter 
         else:
             iLog(strMsgSuffix + f" No Positions found. New orders will NOT be placed as strategy1 time {stratgy1_entry_time} passed/not met.")
-    
+
+        mtm = round(sum(df_pos.mtm),2)
+
     else:
         # Check if orders are there
         # if mtm is positive check if carry_till_expiry is true and 
@@ -713,6 +705,8 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
                             place_option_orders(kiteuser,True,True)
                         else:
                             iLog(strMsgSuffix + " Mean reversion orders will NOT be placed as flg_place_orders is false")
+    
+    iLog(strMsgSuffix + f" mtm={mtm}",True)
 
 
 def get_positions(kiteuser):
@@ -758,11 +752,11 @@ def get_positions(kiteuser):
             # return pd.DataFrame([[mtm,qty]],columns = ['m2m', 'quantity'])
         else:
             # Return zero as quantity if there are no position
-            return pd.DataFrame([[0]],columns=['quantity']) 
+            return pd.DataFrame([[0,0]],columns=['quantity','mtm']) 
 
     except Exception as ex:
         iLog(f"[{kiteuser['userid']}] Unable to fetch positions dataframe. Error : {ex}")
-        return pd.DataFrame([[-1]],columns=['quantity'])   # Return empty dataframe
+        return pd.DataFrame([[-1,0]],columns=['quantity','mtm'])   # Return empty dataframe
 
 
 def strategy1():
@@ -952,7 +946,7 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
 
     time.sleep(interval_seconds)   # Process the loop after every n seconds
 
-    # Get the realtime config informaiton
+    # Get the realtime config informaiton every 2 mins
     if cur_HHMM%2 ==0: 
         get_realtime_config()
 
