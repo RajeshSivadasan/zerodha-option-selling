@@ -7,9 +7,11 @@
 # Autoupdate: https://www.gkbrk.com/wiki/python-self-update/ ; https://gist.github.com/gesquive/8363131 ; 
 
 
-# v1.0.0 Base Version, Fixed AttributeError: 'dict' object has no attribute 'margins'. Fixed potential plac_order error due to incorrect usage of kite object
+# 1.0.0 Base Version, Fixed AttributeError: 'dict' object has no attribute 'margins'. Fixed potential plac_order error due to incorrect usage of kite object
 # 1.0.1 Fixed KeyError: 'partial_profit_booked_flg' at line 796, Updated process_orders() to telegram mtm for each user. Check if processing is delayed and is needed 
-version = "1.0.1"
+# 1.0.2 Added code to send log. Changed mtm printing frequency
+# 1.0.3 Profit booking not happening. Logged partial_profit_booked_flg in book_profit(); print mtm at the end 
+version = "1.0.3"
 
 
 # Autoupdate latest version from github
@@ -633,15 +635,16 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
         pass
 
     elif pos == 0:
+        mtm = round(sum(df_pos.mtm),2)
         if flg_place_orders:
-            iLog( strMsgSuffix + " No Positions found. New orders will be placed")
+            iLog( strMsgSuffix + f" No Positions found. New orders will be placed mtm={mtm}")
             # Below is called only one time in the strategy1() before calling process_orders() for each user
             # get_options()                 # Refresh call and put to be traded into the global variables
             place_option_orders(kiteuser)   # Place orders as per the strategy designated time in the parameter 
         else:
-            iLog(strMsgSuffix + f" No Positions found. New orders will NOT be placed as strategy1 time {stratgy1_entry_time} passed/not met.")
+            iLog(strMsgSuffix + f" No Positions found. New orders will NOT be placed as strategy1 time {stratgy1_entry_time} passed/not met. mtm={mtm}")
 
-        mtm = round(sum(df_pos.mtm),2)
+        
 
     else:
         # Check if orders are there
@@ -706,7 +709,6 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
                         else:
                             iLog(strMsgSuffix + " Mean reversion orders will NOT be placed as flg_place_orders is false")
     
-    iLog(strMsgSuffix + f" mtm={mtm}",True)
 
 
 def get_positions(kiteuser):
@@ -783,7 +785,7 @@ def book_profit(kiteuser,df_pos):
     Books profit based on the settings. Takes position dataframe as the mandatory parameter
     '''
 
-    strMsgSuffix = f"[{kiteuser['userid']}] book_profit():"
+    strMsgSuffix = f"[{kiteuser['userid']}] book_profit(): partial_profit_booked_flg {kiteuser['partial_profit_booked_flg']}"
     iLog(strMsgSuffix) 
     
     # Remove logging in loops
@@ -831,11 +833,11 @@ def book_profit_eod(kiteuser):
                 if opt.quantity > 0 :
                     transaction_type = kite.TRANSACTION_TYPE_SELL
                 else:
-                    transaction_type=kite.TRANSACTION_TYPE_BUY
+                    transaction_type = kite.TRANSACTION_TYPE_BUY
                 
                 qty = abs(opt.quantity)
 
-                place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty, transaction_type=transaction_type, order_type=kite.ORDER_TYPE_MARKET)
+                place_order(kiteuser, tradingsymbol=tradingsymbol, qty=qty, transaction_type=transaction_type, order_type=kite.ORDER_TYPE_MARKET)
             
             else:
                 if (tradingsymbol[-2:] in ('CE','PE')) and (opt.quantity < 0) and (opt.mtm > opt.profit_target_amt) :
@@ -952,6 +954,13 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
 
 
 
-iLog(f"====== End of Algo ====== @ {datetime.datetime.now()}",True)
 
-#9
+# End of alogo activities
+# Print MTM for each user
+for kiteuser in kite_users:
+    df_pos = get_positions(kiteuser)
+    mtm = round(sum(df_pos.mtm),2)
+    iLog( f"[{kiteuser['userid']}] mtm = {mtm}") 
+
+
+iLog(f"====== End of Algo ====== @ {datetime.datetime.now()}",True)
