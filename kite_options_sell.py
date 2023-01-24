@@ -10,7 +10,7 @@
 # 1.0.0 Base Version, Fixed AttributeError: 'dict' object has no attribute 'margins'. Fixed potential plac_order error due to incorrect usage of kite object
 # 1.0.1 Fixed KeyError: 'partial_profit_booked_flg' at line 796, Updated process_orders() to telegram mtm for each user. Check if processing is delayed and is needed 
 # 1.0.2 Added code to send log. Changed mtm printing frequency
-# 1.0.3 Profit booking not happening. Logged partial_profit_booked_flg in book_profit(); print mtm at the end 
+# 1.0.3 Profit booking not happening. Fixed float qty issue in book_profit(); print mtm at the end; changed process_orders();  
 version = "1.0.3"
 
 
@@ -644,8 +644,6 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
         else:
             iLog(strMsgSuffix + f" No Positions found. New orders will NOT be placed as strategy1 time {stratgy1_entry_time} passed/not met. mtm={mtm}")
 
-        
-
     else:
         # Check if orders are there
         # if mtm is positive check if carry_till_expiry is true and 
@@ -656,49 +654,26 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
         mtm = round(sum(df_pos.mtm),2)
 
         # position/quantity will be applicable for each symbol
-        iLog(strMsgSuffix + f" Existing position available. Overall mtm={mtm} approx. net_margin_utilised={net_margin_utilised}, profit_target={profit_target} kite_margin={kite_margin}",True)
+        iLog(strMsgSuffix + f" Existing position available. Overall mtm={mtm} profit_target={profit_target} net_margin_utilised={net_margin_utilised} kite_margin={kite_margin}",True)
 
         # May be revised based on the overall profit strategy
         # Book profit if any of the position has achieved the profit target
         book_profit(kiteuser,df_pos)
         
-        if mtm > profit_target:
-            # Squareoff 80% (In Case of Large Qtys) of the positions 
-            iLog(strMsgSuffix + " Overall mtm > profit_target; Squareoff")
-            # df_SqOff = pd.DataFrame(kite.positions().get('net'))[['tradingsymbol','m2m','quantity']]
-            # book_profit(df_pos)
-            # for indx in df_pos.index:
-            #     tradingsymbol = df_pos['tradingsymbol'][indx]
-            #     qty = df_pos['quantity'][indx] * -1
-            #     iLog(strMsgSuffix + f" tradingsymbol={tradingsymbol}, qty={qty}")
-                
-            #     # Square off only options
-            #     if tradingsymbol[-2:] in ('CE','PE') and (abs(qty)>0):
-            #         iLog(strMsgSuffix + f" Placing Squareoff order for tradingsymbol={tradingsymbol}, qty={qty}",True)
-                    
-            #         # Cancel any buy order already placed
-                    
-            #         place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET)
+        loss_limit_perc = kiteuser['loss_limit_perc']
+        current_mtm_perc = round((mtm / net_margin_utilised)*100,1)
+        
+        # iLog(strMsgSuffix + f" MTM {mtm} less than target profit {profit_target}. current_mtm_perc={current_mtm_perc}, loss_limit_perc={loss_limit_perc}",True)
 
 
-            # iLog(strMsgSuffix + " All Positions should be Squared Off")
-            # exit_algo()
-        else:
-                # In case of existing positions Check if loss needs to be booked
-                loss_limit_perc = kiteuser['loss_limit_perc']
-                current_mtm_perc = round((mtm / net_margin_utilised)*100,1)
-                iLog(strMsgSuffix + f" MTM {mtm} less than target profit{profit_target}. current_mtm_perc={current_mtm_perc}, loss_limit_perc={loss_limit_perc}",True)
-                
-                if current_mtm_perc < 0:
-                    if abs(current_mtm_perc) > loss_limit_perc:
-                        iLog(strMsgSuffix + " Book Loss.(Placeholder Only)")
-                    else:
-                        # Apply Mean Reversion
-                        # Check if order is alredy there and pending
-                        iLog(strMsgSuffix + " Apply Mean Reversion orders if not already present")
-                
+        # In case of existing positions Check if loss needs to be booked
+        if current_mtm_perc < 0:
+            if abs(current_mtm_perc) > loss_limit_perc:
+                iLog(strMsgSuffix + " Book Loss.(Placeholder Only)")
+            else:
+                # Apply Mean Reversion
+                # Check if order is alredy there and pending
                 iLog(strMsgSuffix + " Checking existing positions and applying Mean Reversion orders if not already present and mtm<100")
-                
                 # Check and Place mean reversion orders for the current positions
                 for opt in df_pos.itertuples():
                     iLog(strMsgSuffix + f" opt.tradingsymbol={opt.tradingsymbol} opt.instrument_token={opt.instrument_token} opt.mtm={opt.mtm}")
@@ -709,7 +684,6 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
                         else:
                             iLog(strMsgSuffix + " Mean reversion orders will NOT be placed as flg_place_orders is false")
     
-
 
 def get_positions(kiteuser):
     '''Returns dataframe columns (m2m,quantity) with net values for Options only'''
@@ -797,13 +771,13 @@ def book_profit(kiteuser,df_pos):
             
             qty = abs(opt.quantity) * (kiteuser["profit_booking_qty_perc"]/100)
             qty = qty - (qty % -50)
-            qty = qty * (-1 if opt.quantity>0 else 1)   # Get reverse sign to b
+            qty = int(qty * (-1 if opt.quantity>0 else 1))   # Get reverse sign to b
             iLog(strMsgSuffix + f" tradingsymbol={tradingsymbol} qty={qty} opt.ltp={opt.ltp} carry_till_expiry_price={carry_till_expiry_price} opt.mtm={opt.mtm} opt.profit_target_amt={opt.profit_target_amt}")
             # Need to provision for partial profit booking
             if (tradingsymbol[-2:] in ('CE','PE')) and (opt.quantity < 0) and (opt.mtm > opt.profit_target_amt)  and (opt.ltp > carry_till_expiry_price) :
                 # iLog(strMsgSuffix + f" Placing Squareoff order for tradingsymbol={tradingsymbol}, qty={qty}",True)
-                place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET)
-                kiteuser["partial_profit_booked_flg"]=1
+                if place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET):
+                    kiteuser["partial_profit_booked_flg"]=1
 
 
 def book_profit_eod(kiteuser):
@@ -823,26 +797,28 @@ def book_profit_eod(kiteuser):
         for opt in df_pos.itertuples():
             # 
             tradingsymbol = opt.tradingsymbol
-            iLog(strMsgSuffix + f" tradingsymbol={tradingsymbol} qty={opt.quantity} opt.ltp={opt.ltp} expiry={opt.expiry} carry_till_expiry_price={carry_till_expiry_price} opt.mtm={opt.mtm} opt.profit_target_amt={opt.profit_target_amt}")
+            qty = int(opt.quantity)
+            iLog(strMsgSuffix + f" tradingsymbol={tradingsymbol} qty={qty} opt.ltp={opt.ltp} expiry={opt.expiry} carry_till_expiry_price={carry_till_expiry_price} opt.mtm={opt.mtm} opt.profit_target_amt={opt.profit_target_amt}")
             # Check if expiry is today then force squareoff
             
             if opt.expiry == expiry_date:
                 # Force squareoff
                 iLog(strMsgSuffix + f" **************** Force Squareoff order for tradingsymbol={tradingsymbol} as expiry today ****************",True)
                 
-                if opt.quantity > 0 :
+                if qty > 0 :
                     transaction_type = kite.TRANSACTION_TYPE_SELL
                 else:
                     transaction_type = kite.TRANSACTION_TYPE_BUY
                 
-                qty = abs(opt.quantity)
+                qty = abs(qty)
 
                 place_order(kiteuser, tradingsymbol=tradingsymbol, qty=qty, transaction_type=transaction_type, order_type=kite.ORDER_TYPE_MARKET)
             
             else:
+                # Squareoff only if MTM > profit target
                 if (tradingsymbol[-2:] in ('CE','PE')) and (opt.quantity < 0) and (opt.mtm > opt.profit_target_amt) :
                     iLog(strMsgSuffix + f" Placing Squareoff order for tradingsymbol={tradingsymbol}",True)
-                    place_order(kiteuser,tradingsymbol=tradingsymbol,qty=opt.quantity*-1, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET)
+                    place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty*-1, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET)
 
 
 def get_realtime_config():
