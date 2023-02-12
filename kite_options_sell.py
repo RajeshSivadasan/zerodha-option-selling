@@ -10,8 +10,10 @@
 # 1.0.0 Base Version, Fixed AttributeError: 'dict' object has no attribute 'margins'. Fixed potential plac_order error due to incorrect usage of kite object
 # 1.0.1 Fixed KeyError: 'partial_profit_booked_flg' at line 796, Updated process_orders() to telegram mtm for each user. Check if processing is delayed and is needed 
 # 1.0.2 Added code to send log. Changed mtm printing frequency
-# 1.0.3 Profit booking not happening. Fixed float qty issue in book_profit(); print mtm at the end; changed process_orders();  
-version = "1.0.3"
+# 1.0.3 Profit booking not happening. Fixed float qty issue in book_profit(); print mtm at the end; changed process_orders();
+# 1.0.4 Added profit_booking_type (PERCENT|PIVOT). Update .ini file user sections with profit_booking_type = PERCENT | PIVOT   
+# 1.0.5 used sell_quantity instead of quantity in get_positions() to calculate profit_target_amount as new postions were getting squared off due to profit target aleady being achieved
+version = "1.0.5"
 
 
 # Autoupdate latest version from github
@@ -166,6 +168,7 @@ for section in cfg.sections():
             user['userid'] = cfg.get(section, "userid")
             user['password'] = cfg.get(section, "password")
             user['totp_key'] = cfg.get(section, "totp_key")
+            user['profit_booking_type'] = cfg.get(section, "profit_booking_type")   # PERCENT | PIVOT
             user['profit_target_perc'] = float(cfg.get(section, "profit_target_perc"))
             user['loss_limit_perc'] = float(cfg.get(section, "loss_limit_perc"))
             user['profit_booking_qty_perc'] = int(cfg.get(section, "profit_booking_qty_perc"))
@@ -311,7 +314,7 @@ def get_pivot_points(instrument_token):
 
 def get_options(instrument_token=None):
     '''
-    Gets the call and put option in the global df objects (dict_nifty_ce, df_instrument_nifty_opt_pe) 
+    Gets the call and put option in the global df objects (dict_nifty_ce, dict_nifty_pe, dict_nifty_opt_selected) 
     for the required strike as per the parameters and and calculates pivot points for entry and exit
     '''
     global dict_nifty_ce, dict_nifty_pe, dict_nifty_opt_selected
@@ -610,7 +613,7 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
     '''
     Check the status of orders/squareoff/add positions
     '''
-    # FOr each users do the following:
+    # For each users do the following:
     # 1. Check existing positions if any
     # 2. If no positions 
     #       2.1 Get options and place orders (check if orders already exists) based on pivot points regular levels
@@ -636,6 +639,7 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
 
     elif pos == 0:
         mtm = round(sum(df_pos.mtm),2)
+        kiteuser["partial_profit_booked_flg"] = 0   # Reset the profit book flag to zero
         if flg_place_orders:
             iLog( strMsgSuffix + f" No Positions found. New orders will be placed mtm={mtm}")
             # Below is called only one time in the strategy1() before calling process_orders() for each user
@@ -658,7 +662,10 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
 
         # May be revised based on the overall profit strategy
         # Book profit if any of the position has achieved the profit target
-        book_profit(kiteuser,df_pos)
+        if kiteuser['profit_booking_type']=="PIVOT":
+            pass
+        else:
+            book_profit_PERC(kiteuser,df_pos)
         
         loss_limit_perc = kiteuser['loss_limit_perc']
         current_mtm_perc = round((mtm / net_margin_utilised)*100,1)
@@ -698,7 +705,7 @@ def get_positions(kiteuser):
         if len(dict_positions)>0:
 
             # iLog(f"dict_positions=\n{dict_positions}")
-            df_pos = pd.DataFrame(dict_positions)[['tradingsymbol', 'exchange', 'instrument_token','quantity','sell_value','buy_value','last_price','multiplier','average_price']]
+            df_pos = pd.DataFrame(dict_positions)[['tradingsymbol', 'exchange', 'instrument_token','quantity','sell_quantity','sell_value','buy_value','last_price','multiplier','average_price']]
 
             df_pos = df_pos[df_pos.exchange=='NFO']
 
@@ -715,7 +722,7 @@ def get_positions(kiteuser):
             else:
                 # df_pos["mtm"] = ( df_pos.sell_value - df_pos.buy_value ) + (df_pos.quantity * df_pos.last_price * df_pos.multiplier)
                 df_pos["mtm"] = ( df_pos.sell_value - df_pos.buy_value ) + (df_pos.quantity * df_pos.ltp * df_pos.multiplier)
-                df_pos["profit_target_amt"] = (abs(df_pos.quantity/50)*nifty_avg_margin_req_per_lot) * (kiteuser["profit_target_perc"]/100)
+                df_pos["profit_target_amt"] = (abs(df_pos.sell_quantity/50)*nifty_avg_margin_req_per_lot) * (kiteuser["profit_target_perc"]/100)    # used sell_quantity insted of quantity to captue net profit target
                 return df_pos[['tradingsymbol','instrument_token','quantity','mtm','profit_target_amt','ltp','expiry']]
 
 
@@ -754,16 +761,16 @@ def strategy2(kiteuser):
     pass
 
 
-def book_profit(kiteuser,df_pos):
+def book_profit_PERC(kiteuser,df_pos):
     '''
-    Books profit based on the settings. Takes position dataframe as the mandatory parameter
+    Books profit based on the profit booking percentage settings. Takes position dataframe as the mandatory parameter
     '''
 
-    strMsgSuffix = f"[{kiteuser['userid']}] book_profit(): partial_profit_booked_flg {kiteuser['partial_profit_booked_flg']}"
+    strMsgSuffix = f"[{kiteuser['userid']}] book_profit_PERC(): partial_profit_booked_flg {kiteuser['partial_profit_booked_flg']}"
     iLog(strMsgSuffix) 
     
     # Remove logging in loops
-    if kiteuser["partial_profit_booked_flg"]==0:
+    if kiteuser["partial_profit_booked_flg"] == 0:
         for opt in df_pos.itertuples():
             # Check if instrument options and position is sell and its mtm is greater than profit target amt
             tradingsymbol = opt.tradingsymbol
@@ -777,7 +784,7 @@ def book_profit(kiteuser,df_pos):
             if (tradingsymbol[-2:] in ('CE','PE')) and (opt.quantity < 0) and (opt.mtm > opt.profit_target_amt)  and (opt.ltp > carry_till_expiry_price) :
                 # iLog(strMsgSuffix + f" Placing Squareoff order for tradingsymbol={tradingsymbol}, qty={qty}",True)
                 if place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET):
-                    kiteuser["partial_profit_booked_flg"]=1
+                    kiteuser["partial_profit_booked_flg"] = 1
 
 
 def book_profit_eod(kiteuser):
@@ -935,8 +942,7 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
 # Print MTM for each user
 for kiteuser in kite_users:
     df_pos = get_positions(kiteuser)
-    mtm = round(sum(df_pos.mtm),2)
-    iLog( f"[{kiteuser['userid']}] mtm = {mtm}") 
+    iLog( f"[{kiteuser['userid']}] mtm = {round(sum(df_pos.mtm),2)} net_posiiton = {sum(df_pos.quantity)}",sendTeleMsg=True) 
 
 
 iLog(f"====== End of Algo ====== @ {datetime.datetime.now()}",True)
