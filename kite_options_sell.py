@@ -12,8 +12,9 @@
 # 1.0.2 Added code to send log. Changed mtm printing frequency
 # 1.0.3 Profit booking not happening. Fixed float qty issue in book_profit(); print mtm at the end; changed process_orders();
 # 1.0.4 Added profit_booking_type (PERCENT|PIVOT). Update .ini file user sections with profit_booking_type = PERCENT | PIVOT   
-# 1.0.5 used sell_quantity instead of quantity in get_positions() to calculate profit_target_amount as new postions were getting squared off due to profit target aleady being achieved
-version = "1.0.5"
+# 1.0.5 used sell_quantity instead of quantity in get_positions() to calculate profit_target_amount as new positions were getting squared off due to profit target already being achieved
+# 1.0.6 Exception handling for processing as the algo gets aborted totally; print position and MTM each 5mins
+version = "1.0.6"
 
 
 # Autoupdate latest version from github
@@ -148,6 +149,8 @@ stratgy2_entry_time = int(cfg.get("realtime", "stratgy2_entry_time"))
 # profit_booking_qty_perc = int(cfg.get("info", "profit_booking_qty_perc"))  
 eod_process_time = int(cfg.get("info", "eod_process_time")) # Time at which the eod process needs to run. Usually final profit/loss booking(in case of expiry)
 
+flg_in5minBlock = False
+
 all_variables = f"INI_FILE={INI_FILE} interval_seconds={interval_seconds}"\
     f" stratgy1_entry_time={stratgy1_entry_time} nifty_opt_base_lot={nifty_opt_base_lot}"\
     f" nifty_ce_max_price_limit={nifty_ce_max_price_limit} nifty_pe_max_price_limit={nifty_pe_max_price_limit}"\
@@ -155,6 +158,9 @@ all_variables = f"INI_FILE={INI_FILE} interval_seconds={interval_seconds}"\
     f" option_sell_type={option_sell_type}"
 
 iLog("Settings used : " + all_variables,True)
+
+
+
 
 
 
@@ -917,7 +923,12 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
     
     else:
         for kiteuser in kite_users:
-            process_orders(kiteuser)
+            try:
+                process_orders(kiteuser)
+
+            except Exception as e:
+                iLog(f"[{kiteuser['userid']}] Exception '{e}' occured while processing process_orders(kiteuser) in for loop line 921.",True)
+
 
     # Find processing time and Log only if processing takes more than 2 seconds
     t2 = time.time() - t1
@@ -932,17 +943,19 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
     time.sleep(interval_seconds)   # Process the loop after every n seconds
 
     # Get the realtime config informaiton every 2 mins
-    if cur_HHMM%2 ==0: 
+    if cur_HHMM%2 == 0: 
+        flg_in5minBlock == False
         get_realtime_config()
 
 
 
+    if cur_HHMM%5 == 0 and flg_in5minBlock == False:
+        flg_in5minBlock == True # So that the code only runs once in the 5min code block
+    # Print MTM for each user every 5 mins
+        for kiteuser in kite_users:
+            df_pos = get_positions(kiteuser)
+            iLog( f"[{kiteuser['userid']}] mtm = {round(sum(df_pos.mtm),2)} net_posiiton = {sum(df_pos.quantity)}",sendTeleMsg=True) 
 
-# End of alogo activities
-# Print MTM for each user
-for kiteuser in kite_users:
-    df_pos = get_positions(kiteuser)
-    iLog( f"[{kiteuser['userid']}] mtm = {round(sum(df_pos.mtm),2)} net_posiiton = {sum(df_pos.quantity)}",sendTeleMsg=True) 
-
+    # End of alogo activities
 
 iLog(f"====== End of Algo ====== @ {datetime.datetime.now()}",True)
