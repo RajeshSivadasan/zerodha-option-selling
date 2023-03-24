@@ -1,4 +1,7 @@
 # Todo:
+# Below base lots to be enabled as user specific 
+# nifty_opt_base_lot = 1
+# bank_opt_base_lot = 1
 # process_orders() need restructuring
 # If dow is 5,1,2 and MTM is below -1% then no order to be placed that day and wait for next day
 # carry_till_expiry_price ? Do we really need this setting? What is the tradeoff?
@@ -14,7 +17,9 @@
 # 1.0.4 Added profit_booking_type (PERCENT|PIVOT). Update .ini file user sections with profit_booking_type = PERCENT | PIVOT   
 # 1.0.5 used sell_quantity instead of quantity in get_positions() to calculate profit_target_amount as new positions were getting squared off due to profit target already being achieved
 # 1.0.6 Exception handling for processing as the algo gets aborted totally; print position and MTM each 5mins
-version = "1.0.6"
+# 1.0.7 Added nifty_opt_base_lot and bank_opt_base_lot parameters to the user. Implementation pending
+# 1.0.8 Handled Unknown Content-Type issue using retry option 
+version = "1.0.8"
 
 
 # Autoupdate latest version from github
@@ -179,6 +184,8 @@ for section in cfg.sections():
             user['loss_limit_perc'] = float(cfg.get(section, "loss_limit_perc"))
             user['profit_booking_qty_perc'] = int(cfg.get(section, "profit_booking_qty_perc"))
             user['virtual_trade'] = int(cfg.get(section, "virtual_trade"))
+            user['nifty_opt_base_lot'] = int(cfg.get(section, "nifty_opt_base_lot"))
+            user['bank_opt_base_lot'] = int(cfg.get(section, "bank_opt_base_lot"))
 
             try:
                 totp = pyotp.TOTP(user["totp_key"]).now()
@@ -241,7 +248,14 @@ iLog(f"dow={dow} lst_ord_lvl_reg={lst_ord_lvl_reg} lst_ord_lvl_mr={lst_ord_lvl_m
 
 # Will need to add banknifty here later if required
 # Get option instruments for the current and next expiry
-df = pd.DataFrame(kite.instruments("NFO"))
+while True
+    try:
+        df = pd.DataFrame(kite.instruments("NFO"))
+        break
+    except Exception as ex:
+        iLog(f"Exception occurred {e}. Will wait for 10 seconds before retry.",True)
+        sleep(10)
+
 df = df[ (df.segment=='NFO-OPT')  & (df.name=='NIFTY') & (df.expiry<datetime.date.today()+datetime.timedelta(16)) ]  
 
 
