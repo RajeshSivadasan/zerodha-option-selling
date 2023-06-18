@@ -20,7 +20,8 @@
 # 1.0.7 Added nifty_opt_base_lot and bank_opt_base_lot parameters to the user. Implementation pending
 # 1.0.8 Handled Unknown Content-Type issue using retry option
 # 1.0.9 Fixed error in exception handling at line 256 
-version = "1.0.9"
+# 1.1.0 Changed expiry to firday. Hope the code works. 2 Bud Magnum down ;-) 
+version = "1.1.0"
 
 
 # Autoupdate latest version from github
@@ -228,9 +229,9 @@ kite = kite_users[0]["kite_object"]
 # if today is tue or wed then use next expiry else use current expiry. .isoweekday() 1 = Monday, 2 = Tuesday
 dow = datetime.date.today().isoweekday()    # Also used in placing orders 
 if dow  in (next_week_expiry_days):  # next_week_expiry_days = 2,3,4 
-    expiry_date = datetime.date.today() + datetime.timedelta( ((3-datetime.date.today().weekday()) % 7)+7 )
+    expiry_date = datetime.date.today() + datetime.timedelta( ((4-datetime.date.today().weekday()) % 7)+7 )
 else:
-    expiry_date = datetime.date.today() + datetime.timedelta( ((3-datetime.date.today().weekday()) % 7))
+    expiry_date = datetime.date.today() + datetime.timedelta( ((4-datetime.date.today().weekday()) % 7))
 
 if str(expiry_date) in weekly_expiry_holiday_dates :
     expiry_date = expiry_date - datetime.timedelta(days=1)
@@ -255,7 +256,7 @@ while True:
         break
     except Exception as ex:
         iLog(f"Exception occurred {ex}. Will wait for 10 seconds before retry.",True)
-        sleep(10)
+        time.sleep(10)
 
 df = df[ (df.segment=='NFO-OPT')  & (df.name=='NIFTY') & (df.expiry<datetime.date.today()+datetime.timedelta(16)) ]  
 
