@@ -20,7 +20,7 @@
 # 1.0.7 Added nifty_opt_base_lot and bank_opt_base_lot parameters to the user. Implementation pending
 # 1.0.8 Handled Unknown Content-Type issue using retry option
 # 1.0.9 Fixed error in exception handling at line 256 
-# 1.1.0 Changed expiry to firday. Hope the code works. 2 Bud Magnum down ;-) 
+# 1.1.0 Wait for 180 seconds to print into logs
 version = "1.1.0"
 
 
@@ -229,9 +229,9 @@ kite = kite_users[0]["kite_object"]
 # if today is tue or wed then use next expiry else use current expiry. .isoweekday() 1 = Monday, 2 = Tuesday
 dow = datetime.date.today().isoweekday()    # Also used in placing orders 
 if dow  in (next_week_expiry_days):  # next_week_expiry_days = 2,3,4 
-    expiry_date = datetime.date.today() + datetime.timedelta( ((4-datetime.date.today().weekday()) % 7)+7 )
+    expiry_date = datetime.date.today() + datetime.timedelta( ((3-datetime.date.today().weekday()) % 7)+7 )
 else:
-    expiry_date = datetime.date.today() + datetime.timedelta( ((4-datetime.date.today().weekday()) % 7))
+    expiry_date = datetime.date.today() + datetime.timedelta( ((3-datetime.date.today().weekday()) % 7))
 
 if str(expiry_date) in weekly_expiry_holiday_dates :
     expiry_date = expiry_date - datetime.timedelta(days=1)
@@ -680,7 +680,9 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
         mtm = round(sum(df_pos.mtm),2)
 
         # position/quantity will be applicable for each symbol
-        iLog(strMsgSuffix + f" Existing position available. Overall mtm={mtm} profit_target={profit_target} net_margin_utilised={net_margin_utilised} kite_margin={kite_margin}",True)
+        strMsg = strMsgSuffix + f" Existing position available. Overall mtm={mtm} profit_target={profit_target} net_margin_utilised={net_margin_utilised} kite_margin={kite_margin}" 
+        if int(time.time())%180 == 0 :  # Wait for 3 mins to print into log
+            iLog(strMsg,True)
 
         # May be revised based on the overall profit strategy
         # Book profit if any of the position has achieved the profit target
@@ -970,7 +972,7 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
     # Print MTM for each user every 5 mins
         for kiteuser in kite_users:
             df_pos = get_positions(kiteuser)
-            iLog( f"[{kiteuser['userid']}] mtm = {round(sum(df_pos.mtm),2)} net_posiiton = {sum(df_pos.quantity)}",sendTeleMsg=True) 
+            iLog( f"[{kiteuser['userid']}] mtm = {round(sum(df_pos.mtm),2)} net_positon = {sum(df_pos.quantity)}",sendTeleMsg=True) 
 
     # End of alogo activities
 
