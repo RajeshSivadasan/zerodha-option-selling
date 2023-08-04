@@ -9,7 +9,6 @@
 # For calculation of option greeks using Black Scholes - https://www.youtube.com/watch?v=T6tI3hVks5I 
 # Autoupdate: https://www.gkbrk.com/wiki/python-self-update/ ; https://gist.github.com/gesquive/8363131 ; 
 
-
 # 1.0.0 Base Version, Fixed AttributeError: 'dict' object has no attribute 'margins'. Fixed potential plac_order error due to incorrect usage of kite object
 # 1.0.1 Fixed KeyError: 'partial_profit_booked_flg' at line 796, Updated process_orders() to telegram mtm for each user. Check if processing is delayed and is needed 
 # 1.0.2 Added code to send log. Changed mtm printing frequency
@@ -21,7 +20,8 @@
 # 1.0.8 Handled Unknown Content-Type issue using retry option
 # 1.0.9 Fixed error in exception handling at line 256 
 # 1.1.0 Wait for 180 seconds to print into logs
-version = "1.1.0"
+# 1.1.1 Error: Market orders are blocked from trading due to illiquidity. book_profit_PERC() and book_profit_eod() updated with limit orders
+version = "1.1.1"
 
 
 # Autoupdate latest version from github
@@ -807,7 +807,8 @@ def book_profit_PERC(kiteuser,df_pos):
             # Need to provision for partial profit booking
             if (tradingsymbol[-2:] in ('CE','PE')) and (opt.quantity < 0) and (opt.mtm > opt.profit_target_amt)  and (opt.ltp > carry_till_expiry_price) :
                 # iLog(strMsgSuffix + f" Placing Squareoff order for tradingsymbol={tradingsymbol}, qty={qty}",True)
-                if place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET):
+                # if place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET):
+                if place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty,limit_price=round(opt.ltp+5),transaction_type=kite.TRANSACTION_TYPE_BUY,tag="PartialBooking"):
                     kiteuser["partial_profit_booked_flg"] = 1
 
 
@@ -835,21 +836,27 @@ def book_profit_eod(kiteuser):
             if opt.expiry == expiry_date:
                 # Force squareoff
                 iLog(strMsgSuffix + f" **************** Force Squareoff order for tradingsymbol={tradingsymbol} as expiry today ****************",True)
-                
+                limit_price = 0
                 if qty > 0 :
                     transaction_type = kite.TRANSACTION_TYPE_SELL
+                    limit_price = round(opt.ltp - 5)
                 else:
                     transaction_type = kite.TRANSACTION_TYPE_BUY
-                
+                    limit_price = round(opt.ltp + 5)
+
                 qty = abs(qty)
 
-                place_order(kiteuser, tradingsymbol=tradingsymbol, qty=qty, transaction_type=transaction_type, order_type=kite.ORDER_TYPE_MARKET)
+                # place_order(kiteuser, tradingsymbol=tradingsymbol, qty=qty, transaction_type=transaction_type, order_type=kite.ORDER_TYPE_MARKET)
+                # Changed to limit order
+                place_order(kiteuser, tradingsymbol=tradingsymbol, qty=qty, limit_price=limit_price, transaction_type=transaction_type)
             
             else:
                 # Squareoff only if MTM > profit target
                 if (tradingsymbol[-2:] in ('CE','PE')) and (opt.quantity < 0) and (opt.mtm > opt.profit_target_amt) :
                     iLog(strMsgSuffix + f" Placing Squareoff order for tradingsymbol={tradingsymbol}",True)
-                    place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty*-1, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET)
+                    # place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty*-1, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET)
+                    # Changed to limit order
+                    place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty*-1,limit_price=round(opt.ltp + 5), transaction_type=kite.TRANSACTION_TYPE_BUY)
 
 
 def get_realtime_config():
