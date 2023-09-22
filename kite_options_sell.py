@@ -21,7 +21,8 @@
 # 1.0.9 Fixed error in exception handling at line 256 
 # 1.1.0 Wait for 180 seconds to print into logs
 # 1.1.1 Error: Market orders are blocked from trading due to illiquidity. book_profit_PERC() and book_profit_eod() updated with limit orders
-version = "1.1.1"
+# 1.1.2 auto_profit_booking implemented to override automatic profit booking and give more control to manually manage positions
+version = "1.1.2"
 
 
 # Autoupdate latest version from github
@@ -152,6 +153,8 @@ carry_till_expiry_price = float(cfg.get("info", "carry_till_expiry_price"))  # 2
 option_sell_type = cfg.get("realtime", "option_sell_type")
 stratgy1_entry_time = int(cfg.get("realtime", "stratgy1_entry_time"))
 stratgy2_entry_time = int(cfg.get("realtime", "stratgy2_entry_time"))
+auto_profit_booking = int(cfg.get("realtime", "auto_profit_booking"))   # 0 is default i.e automatic profit booking is disabled, 1 to enable auto profit booking
+
 
 # profit_booking_qty_perc = int(cfg.get("info", "profit_booking_qty_perc"))  
 eod_process_time = int(cfg.get("info", "eod_process_time")) # Time at which the eod process needs to run. Usually final profit/loss booking(in case of expiry)
@@ -162,7 +165,7 @@ all_variables = f"INI_FILE={INI_FILE} interval_seconds={interval_seconds}"\
     f" stratgy1_entry_time={stratgy1_entry_time} nifty_opt_base_lot={nifty_opt_base_lot}"\
     f" nifty_ce_max_price_limit={nifty_ce_max_price_limit} nifty_pe_max_price_limit={nifty_pe_max_price_limit}"\
     f" carry_till_expiry_price={carry_till_expiry_price} stratgy2_entry_time={stratgy2_entry_time}"\
-    f" option_sell_type={option_sell_type}"
+    f" option_sell_type={option_sell_type} auto_profit_booking={auto_profit_booking}"
 
 iLog("Settings used : " + all_variables,True)
 
@@ -689,7 +692,10 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
         if kiteuser['profit_booking_type']=="PIVOT":
             pass
         else:
-            book_profit_PERC(kiteuser,df_pos)
+            if auto_profit_booking == 1 :
+                book_profit_PERC(kiteuser,df_pos)
+            else:
+                iLog("Auto Profit booking disabled !")
         
         loss_limit_perc = kiteuser['loss_limit_perc']
         current_mtm_perc = round((mtm / net_margin_utilised)*100,1)
@@ -863,7 +869,7 @@ def get_realtime_config():
     ''''
     Set the realtime configuration parmeters after each minute 
     '''
-    global option_sell_type, stratgy1_entry_time, stratgy2_entry_time
+    global option_sell_type, stratgy1_entry_time, stratgy2_entry_time, auto_profit_booking
 
     iLog("Getting Realtime config parameter") 
     cfg.read(INI_FILE)
@@ -871,6 +877,7 @@ def get_realtime_config():
     option_sell_type = cfg.get("realtime", "option_sell_type")
     stratgy1_entry_time = int(cfg.get("realtime", "stratgy1_entry_time"))
     stratgy2_entry_time = int(cfg.get("realtime", "stratgy2_entry_time"))
+    auto_profit_booking = int(cfg.get("realtime", "auto_profit_booking"))
 
 
 def get_pcr():
@@ -967,7 +974,7 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
 
     time.sleep(interval_seconds)   # Process the loop after every n seconds
 
-    # Get the realtime config informaiton every 2 mins
+    # Get the realtime config information every 2 mins
     if cur_HHMM%2 == 0: 
         flg_in5minBlock == False
         get_realtime_config()
@@ -981,6 +988,6 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
             df_pos = get_positions(kiteuser)
             iLog( f"[{kiteuser['userid']}] mtm = {round(sum(df_pos.mtm),2)} net_positon = {sum(df_pos.quantity)}",sendTeleMsg=True) 
 
-    # End of alogo activities
+    # End of algo activities
 
 iLog(f"====== End of Algo ====== @ {datetime.datetime.now()}",True)
