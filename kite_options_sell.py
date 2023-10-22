@@ -22,7 +22,8 @@
 # 1.1.0 Wait for 180 seconds to print into logs
 # 1.1.1 Error: Market orders are blocked from trading due to illiquidity. book_profit_PERC() and book_profit_eod() updated with limit orders
 # 1.1.2 auto_profit_booking implemented to override automatic profit booking and give more control to manually manage positions
-version = "1.1.2"
+# 1.1.3 book_profit_eod() not working on expiry. Modified the code to fix the issue.
+version = "1.1.3"
 
 
 # Autoupdate latest version from github
@@ -160,6 +161,9 @@ auto_profit_booking = int(cfg.get("realtime", "auto_profit_booking"))   # 0 is d
 eod_process_time = int(cfg.get("info", "eod_process_time")) # Time at which the eod process needs to run. Usually final profit/loss booking(in case of expiry)
 
 flg_in5minBlock = False
+
+book_profit_eod_processed = 0
+
 
 all_variables = f"INI_FILE={INI_FILE} interval_seconds={interval_seconds}"\
     f" stratgy1_entry_time={stratgy1_entry_time} nifty_opt_base_lot={nifty_opt_base_lot}"\
@@ -827,13 +831,8 @@ def book_profit_eod(kiteuser):
 
     df_pos = get_positions(kiteuser)
 
-    pos = min(df_pos.quantity)
-    if pos < 1:
-        pass
-    
-    else:
-        for opt in df_pos.itertuples():
-            # 
+    for opt in df_pos.itertuples():
+        if abs(opt.quantity)>0:
             tradingsymbol = opt.tradingsymbol
             qty = int(opt.quantity)
             iLog(strMsgSuffix + f" tradingsymbol={tradingsymbol} qty={qty} opt.ltp={opt.ltp} expiry={opt.expiry} carry_till_expiry_price={carry_till_expiry_price} opt.mtm={opt.mtm} opt.profit_target_amt={opt.profit_target_amt}")
@@ -859,10 +858,10 @@ def book_profit_eod(kiteuser):
             else:
                 # Squareoff only if MTM > profit target
                 if (tradingsymbol[-2:] in ('CE','PE')) and (opt.quantity < 0) and (opt.mtm > opt.profit_target_amt) :
-                    iLog(strMsgSuffix + f" Placing Squareoff order for tradingsymbol={tradingsymbol}",True)
+                    iLog(strMsgSuffix + f" Execution Commented: Placing Squareoff order for tradingsymbol={tradingsymbol}",True)
                     # place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty*-1, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET)
                     # Changed to limit order
-                    place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty*-1,limit_price=round(opt.ltp + 5), transaction_type=kite.TRANSACTION_TYPE_BUY)
+                    # place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty*-1,limit_price=round(opt.ltp + 5), transaction_type=kite.TRANSACTION_TYPE_BUY)
 
 
 def get_realtime_config():
@@ -949,17 +948,20 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
         strategy1()
     
     elif eod_process_time==cur_HHMM:
-        # Book profit at eod or loss in case expiry
-        for kiteuser in kite_users:
-            book_profit_eod(kiteuser)
-    
+        if book_profit_eod_processed = 0 :
+            # Book profit at eod or loss in case expiry
+            for kiteuser in kite_users:
+                book_profit_eod(kiteuser)
+
+            book_profit_eod_processed = 1
+
     else:
         for kiteuser in kite_users:
             try:
                 process_orders(kiteuser)
 
             except Exception as e:
-                iLog(f"[{kiteuser['userid']}] Exception '{e}' occured while processing process_orders(kiteuser) in for loop line 921.",True)
+                iLog(f"[{kiteuser['userid']}] Exception '{e}' occured while processing process_orders(kiteuser) in for loop line 962.",True)
 
 
     # Find processing time and Log only if processing takes more than 2 seconds
