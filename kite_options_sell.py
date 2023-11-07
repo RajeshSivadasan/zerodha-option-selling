@@ -23,7 +23,8 @@
 # 1.1.1 Error: Market orders are blocked from trading due to illiquidity. book_profit_PERC() and book_profit_eod() updated with limit orders
 # 1.1.2 auto_profit_booking implemented to override automatic profit booking and give more control to manually manage positions
 # 1.1.3 book_profit_eod() not working on expiry. Modified the code to fix the issue.
-version = "1.1.3"
+# 1.1.4 book_profit_eod() bug fix in if condition
+version = "1.1.4"
 
 
 # Autoupdate latest version from github
@@ -948,7 +949,7 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
         strategy1()
     
     elif eod_process_time==cur_HHMM:
-        if book_profit_eod_processed = 0 :
+        if book_profit_eod_processed == 0 :
             # Book profit at eod or loss in case expiry
             for kiteuser in kite_users:
                 book_profit_eod(kiteuser)
