@@ -24,7 +24,11 @@
 # 1.1.2 auto_profit_booking implemented to override automatic profit booking and give more control to manually manage positions
 # 1.1.3 book_profit_eod() not working on expiry. Modified the code to fix the issue.
 # 1.1.4 book_profit_eod() bug fix in if condition
-version = "1.1.4"
+# 1.1.5 book_profit_eod() bug fix in date condition
+# 1.1.6 Changes for debugging blank list of nifty strikes
+# 1.1.7 Implemented autosquareoff for loss percentage as well. Learnt very hard way. Option prices moved 11 times against the position
+
+version = "1.1.6"
 
 
 # Autoupdate latest version from github
@@ -44,9 +48,7 @@ version = "1.1.4"
 # Risk Capacity     : <>
 # Order Management  : 
 
-# Long or Short Bias decision:
-# Long Bias  : When Nifty/Call opens above r1
-# Short Bias : When Nifty/Call opens below  Pivot. 
+# Check after first 15 mins. If nifty breaks high, positive bias, if breaks low negative bias.
 
 
 # Strategy 0:
@@ -73,6 +75,12 @@ version = "1.1.4"
 # or Use Golden Ratio (Fibonacci series) for entry prices
 
 # Exit Criteria    : Book 75% of Qty at 1% of Margin used (Rs 1200 per lot) or 75% at first support if profit is above
+
+
+# Strategy 4 (Far Shorts):
+# Identify far strikes (CE/PE) which expire zero with at least 11+ points 
+# Entry : Trigger this strike only if market moves 0.5% either side. For each 0.5% move  the strike selection further.
+
 
 import pyotp
 from kiteext import KiteExt
@@ -353,6 +361,9 @@ def get_options(instrument_token=None):
     iLog(f"In get_options(): instrument_token={instrument_token}")
 
     # Get ltp for the list of filtered CE/PE strikes 
+    print("lst_nifty_opt:")
+    print(lst_nifty_opt)
+    
     dict_nifty_opt_ltp = kite.ltp(lst_nifty_opt)
 
     # Convert the option ltp dict to dataframe for filtering option
@@ -409,7 +420,8 @@ def get_options(instrument_token=None):
         if df_nifty_opt_selected.empty:
             iLog(f"instrument_token {instrument_token} not found. Getting it from the main dataframe.")
             df_nifty_opt_selected = df[df.instrument_token==instrument_token]
-        
+            print("df_nifty_opt_selected=")
+            print(df_nifty_opt_selected)
         
         # iLog(f"Call/Put selected is : {df_nifty_opt_selected.tradingsymbol[-1]}({df_nifty_opt_selected.instrument_token[-1]}) last_price = {df_nifty_opt_selected.last_price[-1]}")
         # instrument_token = str(df_nifty_opt_selected.instrument_token[-1])
@@ -711,7 +723,24 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
         # In case of existing positions Check if loss needs to be booked
         if current_mtm_perc < 0:
             if abs(current_mtm_perc) > loss_limit_perc:
-                iLog(strMsgSuffix + " Book Loss.(Placeholder Only)")
+                iLog(strMsgSuffix + " Booking Loss. current_mtm_perc={current_mtm_perc} loss_limit_perc={loss_limit_perc}")
+                for opt in df_pos.itertuples():
+                    if abs(opt.quantity)>0:
+                        tradingsymbol = opt.tradingsymbol
+                        qty = int(opt.quantity)
+                        iLog(strMsgSuffix + f" tradingsymbol={tradingsymbol} qty={qty} opt.ltp={opt.ltp} expiry={opt.expiry} carry_till_expiry_price={carry_till_expiry_price} opt.mtm={opt.mtm} opt.profit_target_amt={opt.profit_target_amt}")
+                        if qty > 0 :
+                            transaction_type = kite.TRANSACTION_TYPE_SELL
+                            limit_price = round(opt.ltp - 5)
+                        else:
+                            transaction_type = kite.TRANSACTION_TYPE_BUY
+                            limit_price = round(opt.ltp + 5)
+
+                        qty = abs(qty)
+                        
+                        place_order(kiteuser, tradingsymbol=tradingsymbol, qty=qty, limit_price=limit_price, transaction_type=transaction_type)
+
+
             else:
                 # Apply Mean Reversion
                 # Check if order is alredy there and pending
@@ -779,7 +808,7 @@ def get_positions(kiteuser):
 
 def strategy1():
     '''
-    Place CE/PE/BOTH orders as per the option type setting at strategy1 time (e.g 9.20 AM)
+    Place CE/PE/BOTH orders as per the option type setting at strategy1 time (e.g 9.21 AM)
     '''
     
     iLog(f"In strategy1():")
@@ -839,7 +868,7 @@ def book_profit_eod(kiteuser):
             iLog(strMsgSuffix + f" tradingsymbol={tradingsymbol} qty={qty} opt.ltp={opt.ltp} expiry={opt.expiry} carry_till_expiry_price={carry_till_expiry_price} opt.mtm={opt.mtm} opt.profit_target_amt={opt.profit_target_amt}")
             # Check if expiry is today then force squareoff
             
-            if opt.expiry == expiry_date:
+            if opt.expiry == datetime.date.today(): # Replaced exipry_date with todays date
                 # Force squareoff
                 iLog(strMsgSuffix + f" **************** Force Squareoff order for tradingsymbol={tradingsymbol} as expiry today ****************",True)
                 limit_price = 0
@@ -914,6 +943,7 @@ def exit_algo():
 
 # Get Nifty ATM
 nifty_atm = get_nifty_atm()
+print(f"Nifty ATM : {nifty_atm}")
 
 # Prepare the list of option stikes for entry 
 #--------------------------------------------
