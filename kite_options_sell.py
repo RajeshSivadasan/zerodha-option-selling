@@ -31,7 +31,7 @@
 # 1.1.9 Fix the bug of booking loss for future positions as well. Condition for options only added. 
 # Plan Tag based order management
 
-version = "1.1.8"
+version = "1.1.9"
 # Kite bypass api video (from TradeViaPython)
 # https://youtu.be/dLtWgpjsWdk?si=cPsQJpd0f1zkE4-N
 
