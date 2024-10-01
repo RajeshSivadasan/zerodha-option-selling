@@ -28,6 +28,8 @@
 # 1.1.6 Changes for debugging blank list of nifty strikes
 # 1.1.7 Implemented autosquareoff for loss percentage as well. Learnt very hard way. Option prices moved 11 times against the position
 # 1.1.8 Use Kiteuser as the root user which has the API Key and Secret
+# 1.1.9 Fix the bug of booking loss for future positions as well. Condition for options only added. 
+# Plan Tag based order management
 
 version = "1.1.8"
 # Kite bypass api video (from TradeViaPython)
