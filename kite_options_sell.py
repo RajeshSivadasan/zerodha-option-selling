@@ -879,9 +879,9 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
         # In case of existing positions Check if loss needs to be booked
         if current_mtm_perc < 0:
             if abs(current_mtm_perc) > loss_limit_perc:
-                iLog(strMsgSuffix + " Booking Loss. current_mtm_perc={current_mtm_perc} loss_limit_perc={loss_limit_perc}")
+                iLog(strMsgSuffix + f" Booking Loss for option positions. current_mtm_perc={current_mtm_perc} loss_limit_perc={loss_limit_perc}")
                 for opt in df_pos.itertuples():
-                    if abs(opt.quantity)>0:
+                    if (tradingsymbol[-2:] in ('CE','PE')) and abs(opt.quantity)>0:
                         tradingsymbol = opt.tradingsymbol
                         qty = int(opt.quantity)
                         iLog(strMsgSuffix + f" tradingsymbol={tradingsymbol} qty={qty} opt.ltp={opt.ltp} expiry={opt.expiry} carry_till_expiry_price={carry_till_expiry_price} opt.mtm={opt.mtm} opt.profit_target_amt={opt.profit_target_amt}")
