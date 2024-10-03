@@ -32,7 +32,7 @@
 # 1.2.0 Changed option strike filter to 1500 away from ATM both sides to prevent error during extreme option prices 
 # Plan Tag based order management
 
-version = "1.1.9"
+version = "1.2.0"
 # Kite bypass api video (from TradeViaPython)
 # https://youtu.be/dLtWgpjsWdk?si=cPsQJpd0f1zkE4-N
 
