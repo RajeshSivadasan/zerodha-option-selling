@@ -29,6 +29,7 @@
 # 1.1.7 Implemented autosquareoff for loss percentage as well. Learnt very hard way. Option prices moved 11 times against the position
 # 1.1.8 Use Kiteuser as the root user which has the API Key and Secret
 # 1.1.9 Fix the bug of booking loss for future positions as well. Condition for options only added. 
+# 1.2.0 Changed option strike filter to 1500 away from ATM both sides to prevent error during extreme option prices 
 # Plan Tag based order management
 
 version = "1.1.9"
@@ -1106,7 +1107,7 @@ print(f"Nifty ATM : {nifty_atm}")
 # Prepare the list of option stikes for entry 
 #--------------------------------------------
 # Get list of CE/PE strikes 1000 pts on either side of the ATM from option chain # & (df.strike%100==0)
-lst_nifty_opt = df[(df.name=='NIFTY') & (df.expiry==expiry_date) & ((df.strike>=nifty_atm-1000) & (df.strike<=nifty_atm+1000)) ].tradingsymbol.apply(lambda x:'NFO:'+x).tolist()
+lst_nifty_opt = df[(df.name=='NIFTY') & (df.expiry==expiry_date) & ((df.strike>=nifty_atm-1500) & (df.strike<=nifty_atm+1500)) ].tradingsymbol.apply(lambda x:'NFO:'+x).tolist()
 
 
 get_options()
