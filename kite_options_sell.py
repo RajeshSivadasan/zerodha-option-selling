@@ -29,10 +29,12 @@
 # 1.1.7 Implemented autosquareoff for loss percentage as well. Learnt very hard way. Option prices moved 11 times against the position
 # 1.1.8 Use Kiteuser as the root user which has the API Key and Secret
 # 1.1.9 Fix the bug of booking loss for future positions as well. Condition for options only added. 
-# 1.2.0 Changed option strike filter to 1500 away from ATM both sides to prevent error during extreme option prices 
+# 1.2.0 Changed option strike filter to 1500 away from ATM both sides to prevent error during extreme option prices
+# 1.2.1 Fixed tradingsymbol access error in profit booking code
 # Plan Tag based order management
 
-version = "1.2.0"
+
+version = "1.2.1"
 # Kite bypass api video (from TradeViaPython)
 # https://youtu.be/dLtWgpjsWdk?si=cPsQJpd0f1zkE4-N
 
@@ -101,25 +103,23 @@ import requests
 
 from kiteconnect import KiteConnect
 
-# ---- For API Based login
-
+# ---- For API Based login -----------------
 LOGINURL = "https://kite.zerodha.com/api/login"
 TWOFAURL = "https://kite.zerodha.com/api/twofa"
-
 
 def Zerodha(user_id, password, totp, api_key, secret, tokpath):
     try:
         session = requests.Session()
         session_post = session.post(LOGINURL, data={
             "user_id": user_id, "password": password}).json()
-        iLog(f"{session_post=}")
+        # iLog(f"{session_post=}")
         if (
             session_post and
             isinstance(session_post, dict) and
             session_post['data'].get('request_id', False)
         ):
             request_id = session_post["data"]["request_id"]
-            iLog(f"{request_id=}")
+            # iLog(f"{request_id=}")
         else:
             raise ValueError("Request id is not found")
     except ValueError as ve:
@@ -157,7 +157,7 @@ def Zerodha(user_id, password, totp, api_key, secret, tokpath):
         split_url = session_get.url.split("request_token=")
         if len(split_url) >= 2:
             request_token = split_url[1].split("&")[0]
-            iLog(f"{request_token=}")
+            # iLog(f"{request_token=}")
         else:
             raise ValueError("Request token not found in the URL")
 
@@ -181,15 +181,15 @@ def Zerodha(user_id, password, totp, api_key, secret, tokpath):
     try:
         kite = KiteConnect(api_key=api_key)
         data = kite.generate_session(request_token, api_secret=secret)
-        iLog(f"{data=}")
+        # iLog(f"{data=}")
         if (
             data and
             isinstance(data, dict) and
             data.get('access_token', False)
         ):
-            iLog(f"{data['access_token']}")
-            with open(tokpath, 'w') as tok:
-                tok.write(data['access_token'])
+            # iLog(f"{data['access_token']}")
+            # with open(tokpath, 'w') as tok:
+            #     tok.write(data['access_token'])
             return kite
         else:
             raise ValueError(f"Unable to generate session: {str(data)}")
@@ -197,9 +197,7 @@ def Zerodha(user_id, password, totp, api_key, secret, tokpath):
         # Handle any unexpected exceptions
         iLog(f"when generating session: {e}")
         sys.exit(1)
-# -- For API Based Login
-
-
+# -- For API Based Login -----------------
 
 
 
@@ -525,6 +523,8 @@ def get_options(instrument_token=None):
     df_nifty_opt['type']= df_nifty_opt.index.str[-2:]               # Create type column
     df_nifty_opt['tradingsymbol'] = df_nifty_opt.index.str[4:]      # Create tradingsymbol column
 
+    # print("df_nifty_opt:=")
+    # print(df_nifty_opt)
 
     if instrument_token is None:
         # Check if we can use Dask to parallelize the operations
@@ -854,7 +854,7 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
         # if mtm is positive check if carry_till_expiry is true and 
         # Check if profit/loss target achieved
         kite_margin = kiteuser["kite_object"].margins()["equity"]["utilised"]["debits"]
-        net_margin_utilised = sum(abs(df_pos.quantity/50)*nifty_avg_margin_req_per_lot)
+        net_margin_utilised = sum(abs(df_pos.quantity/nifty_opt_per_lot_qty)*nifty_avg_margin_req_per_lot) 
         profit_target = round(net_margin_utilised * (kiteuser['profit_target_perc']/100))
         mtm = round(sum(df_pos.mtm),2)
 
@@ -882,10 +882,10 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
         # In case of existing positions Check if loss needs to be booked
         if current_mtm_perc < 0:
             if abs(current_mtm_perc) > loss_limit_perc:
-                iLog(strMsgSuffix + f" Booking Loss for option positions. current_mtm_perc={current_mtm_perc} loss_limit_perc={loss_limit_perc}")
+                iLog(strMsgSuffix + f" Booking Loss for option positions. MTM {mtm} current_mtm_perc={current_mtm_perc} loss_limit_perc={loss_limit_perc}")
                 for opt in df_pos.itertuples():
+                    tradingsymbol = opt.tradingsymbol
                     if (tradingsymbol[-2:] in ('CE','PE')) and abs(opt.quantity)>0:
-                        tradingsymbol = opt.tradingsymbol
                         qty = int(opt.quantity)
                         iLog(strMsgSuffix + f" tradingsymbol={tradingsymbol} qty={qty} opt.ltp={opt.ltp} expiry={opt.expiry} carry_till_expiry_price={carry_till_expiry_price} opt.mtm={opt.mtm} opt.profit_target_amt={opt.profit_target_amt}")
                         if qty > 0 :
