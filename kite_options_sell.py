@@ -91,7 +91,7 @@ version = "1.2.1"
 
 import pyotp
 # from kiteext import KiteExt
-from kiteext import *
+# from kiteext import *
 import time
 import datetime
 import os
@@ -112,7 +112,7 @@ def Zerodha(user_id, password, totp, api_key, secret, tokpath):
         session = requests.Session()
         session_post = session.post(LOGINURL, data={
             "user_id": user_id, "password": password}).json()
-        # iLog(f"{session_post=}")
+        iLog(f"{session_post=}")
         if (
             session_post and
             isinstance(session_post, dict) and
@@ -165,10 +165,10 @@ def Zerodha(user_id, password, totp, api_key, secret, tokpath):
         # Handle network-related errors, including HTTP errors
         iLog(f"RequestException: {re}")
         sys.exit(1)
-    except pyotp.utils.OtpError as otp_error:
-        # Handle TOTP generation errors
-        iLog(f"TOTP Generation Error: {otp_error}")
-        sys.exit(1)
+    # except pyotp.utils.OtpError as otp_error:
+    #     # Handle TOTP generation errors
+    #     iLog(f"TOTP Generation Error: {otp_error}")
+    #     sys.exit(1)
     except ValueError as value_error:
         # Handle the case where the request token is not found
         iLog(f"ValueError: {value_error}")
@@ -292,77 +292,85 @@ all_variables = f"INI_FILE={INI_FILE} interval_seconds={interval_seconds}"\
 
 
 
+# Ravigupta code
+# import requests, json, pyotp
+# from kiteconnect import KiteConnect
+# from urllib.parse import urlparse
+# from urllib.parse import parse_qs
+# def login(api_key, api_secret, user_id, user_password, totp_key):
+#     http_session = requests.Session()
+#     url = http_session.get(url='https://kite.trade/connect/login?v=3&api_key='+api_key).url
+#     response = http_session.post(url='https://kite.zerodha.com/api/login', data={'user_id':user_id, 'password':user_password})
+#     resp_dict = json.loads(response.content)
+#     http_session.post(url='https://kite.zerodha.com/api/twofa', data={'user_id':user_id, 'request_id':resp_dict["data"]["request_id"], 'twofa_value':pyotp.TOTP(totp_key).now()})
+#     url = url + "&skip_session=true"
+#     response = http_session.get(url=url, allow_redirects=True).url
+#     request_token = parse_qs(urlparse(response).query)['request_token'][0]
+
+#     kite = KiteConnect(api_key=api_key)
+#     data = kite.generate_session(request_token, api_secret=api_secret)
+#     kite.set_access_token(data["access_token"])
+
+#     return kite
+
+
 
 
 
 # Login and get kite objects for multiple users 
 # ---------------------------------------------
+# Manually authorise first time this url for each user f"https://kite.trade/connect/login?api_key={api_key}"
 kite_users = []
 for section in cfg.sections():
     user={}
 
     if section[0:5]=='user-':
+
+        user['userid'] = cfg.get(section, "userid")
+        user['password'] = cfg.get(section, "password")
+        user['totp_key'] = cfg.get(section, "totp_key")
+        user['api_key'] = cfg.get(section, "api_key")
+        user['api_secret']  = cfg.get(section, "api_secret")
+        user['profit_booking_type'] = cfg.get(section, "profit_booking_type")   # PERCENT | PIVOT
+        user['profit_target_perc'] = float(cfg.get(section, "profit_target_perc"))
+        user['loss_limit_perc'] = float(cfg.get(section, "loss_limit_perc"))
+        user['profit_booking_qty_perc'] = int(cfg.get(section, "profit_booking_qty_perc"))
+        user['virtual_trade'] = int(cfg.get(section, "virtual_trade"))
+        user['nifty_opt_base_lot'] = int(cfg.get(section, "nifty_opt_base_lot"))
+        user['bank_opt_base_lot'] = int(cfg.get(section, "bank_opt_base_lot"))
+
+
         if  cfg.get(section, "root") == 'Y':
             # This part takes care of creating the root kite object which has the API access enabled and is not active in trading
-            r_userid = cfg.get(section, "userid")
-            r_password = cfg.get(section, "password")
-            r_totp_key = cfg.get(section, "totp_key")
-            r_api_key = cfg.get(section, "api_key")
-            r_api_secret = cfg.get(section, "api_secret")
-
             
             try:
-                kite = Zerodha(r_userid, r_password, r_totp_key, r_api_key, r_api_secret, "tokpath.txt")
 
-                # totp = pyotp.TOTP(r_totp_key).now()
-                # twoFA = f"{int(totp):06d}" if len(totp) <=5 else totp
+                kite = Zerodha(user['userid'] , user['password'], user['totp_key'], user['api_key'], user['api_secret'], "tokpath.txt")
 
-                # # user["kite_object"]= KiteExt(user_id=user_id, password=user["password"], twofa=twoFA)
-                # enctoken = get_enctoken(r_userid, r_password, twoFA)
-                # kite = KiteApp(enctoken=enctoken)
+                iLog(f"Root User {user['userid']} Logged in successfuly.",True)
 
-                iLog(f"Root User {r_userid} Logged in successfuly.",True)
+                if cfg.get(section, "active")=='Y': #Root user may not be active in trading
+                    user["kite_object"] = kite
+                    kite_users.append(user)
+                    iLog(f"Root User {user['userid']} is Active in Trading.",True)
 
 
             except Exception as e:
                 iLog(f"Unable to login root user. Pls check credentials. {e}",True)
         
         
-            if cfg.get(section, "active")=='Y':
-                user["kite_object"] = kite
-                kite_users.append(user)
-                iLog(f"Root User {user_id} is Active in Trading.",True)
-        
-        
         elif  cfg.get(section, "active")=='Y':
-            user['userid'] = cfg.get(section, "userid")
-            user['password'] = cfg.get(section, "password")
-            user['totp_key'] = cfg.get(section, "totp_key")
-            user['profit_booking_type'] = cfg.get(section, "profit_booking_type")   # PERCENT | PIVOT
-            user['profit_target_perc'] = float(cfg.get(section, "profit_target_perc"))
-            user['loss_limit_perc'] = float(cfg.get(section, "loss_limit_perc"))
-            user['profit_booking_qty_perc'] = int(cfg.get(section, "profit_booking_qty_perc"))
-            user['virtual_trade'] = int(cfg.get(section, "virtual_trade"))
-            user['nifty_opt_base_lot'] = int(cfg.get(section, "nifty_opt_base_lot"))
-            user['bank_opt_base_lot'] = int(cfg.get(section, "bank_opt_base_lot"))
-           
-            
+
             try:
-                totp = pyotp.TOTP(user["totp_key"]).now()
-                twoFA = f"{int(totp):06d}" if len(totp) <=5 else totp
-                user_id = user["userid"]
-                # Add the kite user object to the users list 
-                # user["kite_object"]= KiteExt(user_id=user_id, password=user["password"], twofa=twoFA)
-                enctoken = get_enctoken(user_id, user["password"], twoFA)
-                user["kite_object"] = KiteApp(enctoken=enctoken)
+                user["kite_object"] = Zerodha(user['userid'] , user['password'], user['totp_key'], user['api_key'], user['api_secret'], "tokpath.txt")
                 user["partial_profit_booked_flg"]=0    # Initialise partial profit booking flag; Set this to 1 if partial profit booking is done.
 
                 kite_users.append(user)
 
-                iLog(f"[{user_id}] User Logged in successfuly.",True)
+                iLog(f"[{user['userid'] }] User Logged in successfuly.",True)
 
             except Exception as e:
-                iLog(f"[{user_id}] Unable to login user. Pls check credentials. {e}",True)
+                iLog(f"[{user['userid'] }] Unable to login user. Pls check credentials. {e}",True)
 
 
 
@@ -370,6 +378,8 @@ if len(kite_users)<1:
     iLog(f"Unable to load or No users found in the .ini file",True)
     sys.exit(0)
 
+
+# sys.exit(0)
 
 # Set kite object to the first user to retrive LTP and other common info; user specific kite info needs to be accessed by kiteuser[n]["kite_object"] 
 # kite = kite_users[0]["kite_object"]
@@ -472,6 +482,7 @@ def get_pivot_points(instrument_token):
     try:
         # Return last row of the dataframe as dictionary
         kite_temp = kite_users[0]["kite_object"]
+        # Historical data can be fetched using KiteExt only if needed
         dict_ohlc =  pd.DataFrame(kite_temp.historical_data(instrument_token,from_date,to_date,'day')).iloc[-1].to_dict()
         # dict_ohlc =  pd.DataFrame(kite.historical_data(instrument_token,from_date,to_date,'day')).iloc[-1].to_dict()
 
@@ -548,14 +559,14 @@ def get_options(instrument_token=None):
         if dict_pivot:
             dict_nifty_ce = dict_pivot
             # update the ltp and tradingsymbol
-            dict_nifty_ce["last_price"] = kite.ltp(instrument_token)[instrument_token]['last_price']
-            dict_nifty_ce["tradingsymbol"] = df_nifty_opt_ce.iloc[0,3]
+
             # iLog("dict_nifty_ce:=",dict_nifty_ce)
 
         else:
             iLog(f"get_options(): Unable to get Pivot points for CE {instrument_token}")
 
-        
+        dict_nifty_ce["last_price"] = kite.ltp(instrument_token)[instrument_token]['last_price']
+        dict_nifty_ce["tradingsymbol"] = df_nifty_opt_ce.iloc[0,3]
         
         # Get PE Pivot Points
         instrument_token = str(df_nifty_opt_pe.iloc[0,0])
@@ -563,13 +574,14 @@ def get_options(instrument_token=None):
         if dict_pivot:
             dict_nifty_pe = dict_pivot
             # update the ltp and tradingsymbol
-            dict_nifty_pe["last_price"] = kite.ltp(instrument_token)[instrument_token]['last_price']
-            dict_nifty_pe["tradingsymbol"] = df_nifty_opt_pe.iloc[0,3]
+
             # iLog("dict_nifty_ce:=",dict_nifty_ce)
 
         else:
             iLog(f"get_options(): Unable to get Pivot points for PE {instrument_token}")
 
+        dict_nifty_pe["last_price"] = kite.ltp(instrument_token)[instrument_token]['last_price']
+        dict_nifty_pe["tradingsymbol"] = df_nifty_opt_pe.iloc[0,3]
 
     
     else:
@@ -778,6 +790,23 @@ def place_option_orders_CEPE(kiteuser,flgMeanReversion,dict_opt):
 
         else:
             iLog(f"[{kiteuser['userid']}] place_option_orders_CEPE(): flgMeanReversion=False, Unable to find pivots and place order for {tradingsymbol}")
+
+
+def place_option_orders_fixed(kiteuser):
+    '''
+    Dependency on get_options() to get the dict_nifty_ce and dict_nifty_pe; get_options need optimisations
+    Place fixed orders for CE/PE 
+    '''
+
+    iLog(f"[{kiteuser['userid']}] place_option_orders_fixed():")    
+
+    last_price = dict_nifty_ce["last_price"] + 100.00
+    tradingsymbol =  dict_nifty_ce["tradingsymbol"]
+    qty = nifty_opt_base_lot * nifty_opt_per_lot_qty
+
+
+    place_order(kiteuser, tradingsymbol, qty,last_price)
+
 
 
 def place_order(kiteuser,tradingsymbol,qty,limit_price=None,transaction_type=kite.TRANSACTION_TYPE_SELL,order_type=kite.ORDER_TYPE_LIMIT,tag="kite_options_sell"):
@@ -1085,7 +1114,7 @@ def exit_algo():
 
 
 
-######## Strategy 1: Sell both CE and PE @<=51
+######## Strategy 1: Sell both CE and PE @<=15
 # No SL, only Mean reversion(averaging) to be applied for leg with -ve MTM
 
 # Mean reversion for leg with -ve MTM
@@ -1114,7 +1143,13 @@ get_options()
 
 # Test Area
 # process_orders(kite)
-# sys.exit(0)
+
+
+for kiteuser in kite_users:
+    place_option_orders_fixed(kiteuser)
+
+print("Test Complete")
+sys.exit(0)
 
 # Check current time
 cur_HHMM = int(datetime.datetime.now().strftime("%H%M"))
