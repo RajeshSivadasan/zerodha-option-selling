@@ -403,7 +403,7 @@ dow = datetime.date.today().isoweekday()    # Also used in placing orders
 next_expiry_date = datetime.date.today() + datetime.timedelta( ((3-datetime.date.today().weekday()) % 7)+7 )
 curr_expiry_date = datetime.date.today() + datetime.timedelta( ((3-datetime.date.today().weekday()) % 7))
 
-curr_expiry_date_BFO = datetime.date.today() + datetime.timedelta( ((3-datetime.date.today().weekday()) % 5))
+curr_expiry_date_BFO = datetime.date.today() + datetime.timedelta( ((1-datetime.date.today().weekday()) % 7))
 
 if str(curr_expiry_date) in weekly_expiry_holiday_dates :
     curr_expiry_date = curr_expiry_date - datetime.timedelta(days=1)
@@ -441,14 +441,14 @@ while True:
         time.sleep(10)
 
 df = df[ (df.segment=='NFO-OPT')  & (df.name=='NIFTY') & (df.expiry==curr_expiry_date) ]
-df_BFO = df_BFO[ (df_BFO.segment=='BFO-OPT')  & (df.name=='SENSEX') & (df.expiry==curr_expiry_date_BFO) ]  
+df_BFO = df_BFO[ (df_BFO.segment=='BFO-OPT')  & (df_BFO.name=='SENSEX') & (df_BFO.expiry==curr_expiry_date_BFO) ]  
 
 
 # Get a dict of instrument_token and expiry for getting the expiry in the get_positions()
 dict_token_expiry = df.set_index('instrument_token').to_dict()['expiry']
 
 # Get NIfty and BankNifty instrument data
-instruments = ["NSE:NIFTY 50","NSE:NIFTY BANK"] 
+instruments = ["NSE:NIFTY 50","NSE:NIFTY BANK","BSE:SENSEX"]  # Add more indices if needed
 
 # To find nifty open range to decide market bias (Long,Short,Neutral)
 nifty_olhc = kite.ohlc("NSE:NIFTY 50")
