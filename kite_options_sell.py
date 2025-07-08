@@ -341,7 +341,7 @@ for section in cfg.sections():
 
 
         if  cfg.get(section, "root") == 'Y':
-            # This part takes care of creating the root kite object which has the API access enabled and is not active in trading
+            # This part takes care of creating the root kite object which has the API access enabled
             
             try:
 
@@ -400,15 +400,24 @@ if len(kite_users)<1:
 # ----------------------------
 # if today is tue or wed then use next expiry else use current expiry. .isoweekday() 1 = Monday, 2 = Tuesday
 dow = datetime.date.today().isoweekday()    # Also used in placing orders 
-if dow  in (next_week_expiry_days):  # next_week_expiry_days = 2,3,4 
-    expiry_date = datetime.date.today() + datetime.timedelta( ((3-datetime.date.today().weekday()) % 7)+7 )
-else:
-    expiry_date = datetime.date.today() + datetime.timedelta( ((3-datetime.date.today().weekday()) % 7))
+next_expiry_date = datetime.date.today() + datetime.timedelta( ((3-datetime.date.today().weekday()) % 7)+7 )
+curr_expiry_date = datetime.date.today() + datetime.timedelta( ((3-datetime.date.today().weekday()) % 7))
 
-if str(expiry_date) in weekly_expiry_holiday_dates :
-    expiry_date = expiry_date - datetime.timedelta(days=1)
+curr_expiry_date_BFO = datetime.date.today() + datetime.timedelta( ((3-datetime.date.today().weekday()) % 5))
 
-iLog(f"expiry_date = {expiry_date}")
+if str(curr_expiry_date) in weekly_expiry_holiday_dates :
+    curr_expiry_date = curr_expiry_date - datetime.timedelta(days=1)
+
+if str(next_expiry_date) in weekly_expiry_holiday_dates :
+    next_expiry_date = next_expiry_date - datetime.timedelta(days=1)
+
+if str(curr_expiry_date_BFO) in weekly_expiry_holiday_dates :
+    curr_expiry_date_BFO = curr_expiry_date_BFO - datetime.timedelta(days=1)
+
+
+
+
+iLog(f"dow = {dow} curr_expiry_date = {curr_expiry_date} curr_expiry_date_BFO = {curr_expiry_date_BFO}")
 
 
 # Get the trading levels and quantity multipliers to be followed for the day .e.g on Friday only trade reversion 3rd or 4th levels to be safe
@@ -425,12 +434,14 @@ iLog(f"dow={dow} lst_ord_lvl_reg={lst_ord_lvl_reg} lst_ord_lvl_mr={lst_ord_lvl_m
 while True:
     try:
         df = pd.DataFrame(kite.instruments("NFO"))
+        df_BFO = pd.DataFrame(kite.instruments("BFO")) 
         break
     except Exception as ex:
         iLog(f"Exception occurred {ex}. Will wait for 10 seconds before retry.",True)
         time.sleep(10)
 
-df = df[ (df.segment=='NFO-OPT')  & (df.name=='NIFTY') & (df.expiry<datetime.date.today()+datetime.timedelta(16)) ]  
+df = df[ (df.segment=='NFO-OPT')  & (df.name=='NIFTY') & (df.expiry==curr_expiry_date) ]
+df_BFO = df_BFO[ (df_BFO.segment=='BFO-OPT')  & (df.name=='SENSEX') & (df.expiry==curr_expiry_date_BFO) ]  
 
 
 # Get a dict of instrument_token and expiry for getting the expiry in the get_positions()
@@ -608,6 +619,51 @@ def get_options(instrument_token=None):
         
         else:
             iLog(f"Unable to get Pivot points for selected CE/PE  {instrument_token}")
+
+
+def get_options_NSE():
+    '''
+    Gets the call and put option in the global df objects (dict_nifty_ce, dict_nifty_pe) 
+    '''
+    global dict_nifty_ce, dict_nifty_pe
+
+    
+    iLog(f"In get_options_NSE():")
+
+    # Get ltp for the list of filtered CE/PE strikes 
+    # print("lst_nifty_opt:\n{lst_nifty_opt}")
+    
+    dict_nifty_opt_ltp = kite.ltp(lst_nifty_opt)
+
+    # Convert the option ltp dict to dataframe for filtering option
+    df_nifty_opt = pd.DataFrame.from_dict(dict_nifty_opt_ltp,orient='index')
+
+    df_nifty_opt['type']= df_nifty_opt.index.str[-2:]               # Create type column
+    df_nifty_opt['tradingsymbol'] = df_nifty_opt.index.str[4:]      # Create tradingsymbol column
+
+    # print("df_nifty_opt:=\n{df_nifty_opt}")
+
+
+    # Check if we can use Dask to parallelize the operations
+    # If no instrument token passed then get default options for both CE and PE
+    # Get the CE/PE instrument data(instrument_token,last_price,type,symbol) where last_price is maximum but less than equal to option max price limit (e.g <=200)
+    df_nifty_opt_ce = df_nifty_opt[(df_nifty_opt.type=='CE') & (df_nifty_opt.last_price==df_nifty_opt[(df_nifty_opt.type=='CE') & (df_nifty_opt.last_price<=nifty_ce_max_price_limit)].last_price.max())]
+    df_nifty_opt_pe = df_nifty_opt[(df_nifty_opt.type=='PE') & (df_nifty_opt.last_price==df_nifty_opt[(df_nifty_opt.type=='PE') & (df_nifty_opt.last_price<=nifty_pe_max_price_limit)].last_price.max())]
+
+    iLog(f"get_options(): Call selected is : {df_nifty_opt_ce.iloc[0,3]}, last_price = {df_nifty_opt_ce.iloc[0,1]}")
+    iLog(f"get_options(): Put  selected is : {df_nifty_opt_pe.iloc[0,3]}, last_price = {df_nifty_opt_pe.iloc[0,1]}")
+
+
+    # CE
+    instrument_token = str(df_nifty_opt_ce.iloc[0,0])
+    dict_nifty_ce["last_price"] = kite.ltp(instrument_token)[instrument_token]['last_price']
+    dict_nifty_ce["tradingsymbol"] = df_nifty_opt_ce.iloc[0,3]
+
+    # PE
+    instrument_token = str(df_nifty_opt_pe.iloc[0,0])
+    dict_nifty_pe["last_price"] = kite.ltp(instrument_token)[instrument_token]['last_price']
+    dict_nifty_pe["tradingsymbol"] = df_nifty_opt_pe.iloc[0,3]
+
 
 
 def place_option_orders(kiteuser,flgMeanReversion=False,flgPlaceSelectedOptionOrder=False):
@@ -792,7 +848,7 @@ def place_option_orders_CEPE(kiteuser,flgMeanReversion,dict_opt):
             iLog(f"[{kiteuser['userid']}] place_option_orders_CEPE(): flgMeanReversion=False, Unable to find pivots and place order for {tradingsymbol}")
 
 
-def place_option_orders_fixed(kiteuser):
+def place_NSE_option_orders_fixed(kiteuser):
     '''
     Dependency on get_options() to get the dict_nifty_ce and dict_nifty_pe; get_options need optimisations
     Place fixed orders for CE/PE 
@@ -800,12 +856,47 @@ def place_option_orders_fixed(kiteuser):
 
     iLog(f"[{kiteuser['userid']}] place_option_orders_fixed():")    
 
-    last_price = dict_nifty_ce["last_price"] + 100.00
-    tradingsymbol =  dict_nifty_ce["tradingsymbol"]
-    qty = nifty_opt_base_lot * nifty_opt_per_lot_qty
+
+    # CE Market Order
+    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, dict_nifty_ce["last_price"] - 5.0)
+
+    # PE Market Order
+    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, dict_nifty_pe["last_price"] - 5.0)
+
+    # CE Order 2,3,4
+    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 30.0)
+    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 60.0)
+    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
+
+    # PE Order 2,3,4
+    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,30.0)
+    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,60.0)
+    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,90.0)
+
+def place_BSE_option_orders_fixed(kiteuser):
+    '''
+    Dependency on get_options() to get the dict_nifty_ce and dict_nifty_pe; get_options need optimisations
+    Place fixed orders for CE/PE 
+    '''
+
+    iLog(f"[{kiteuser['userid']}] place_BSE_option_orders_fixed():")    
 
 
-    place_order(kiteuser, tradingsymbol, qty,last_price)
+    # CE Market Order
+    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, dict_nifty_ce["last_price"] - 5.0)
+
+    # PE Market Order
+    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, dict_nifty_pe["last_price"] - 5.0)
+
+    # CE Order 2,3,4
+    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 30.0)
+    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 60.0)
+    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
+
+    # PE Order 2,3,4
+    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,30.0)
+    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,60.0)
+    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,90.0)
 
 
 
@@ -996,16 +1087,28 @@ def get_positions(kiteuser):
 
 def strategy1():
     '''
-    Place CE/PE/BOTH orders as per the option type setting at strategy1 time (e.g 9.21 AM)
+    Place nifty CE and PE fixed orders on wed morning
     '''
     
     iLog(f"In strategy1():")
     
-    get_options()   # Get the latest options as per the settings  
-    
-    for kiteuser in kite_users:
-        # Will need to give strike selection method (price based or ATM based)
-        process_orders(kiteuser,True)    
+    # Check day of week
+    if dow == 3:  # Wednesday
+        get_options_NSE()   # Get the latest options as per the settings  
+        
+        for kiteuser in kite_users:
+            # Will need to give strike selection method (price based or ATM based)
+            # process_orders(kiteuser,True)    
+            place_NSE_option_orders_fixed(kiteuser)  # Place fixed orders for CE/PE as per the settings
+
+
+    if dow == 1:  # Monday
+        get_options()   # Get the latest options as per the settings  
+        
+        for kiteuser in kite_users:
+            # Will need to give strike selection method (price based or ATM based)
+            # process_orders(kiteuser,True)    
+            place_BSE_option_orders_fixed(kiteuser)  # Place fixed orders for CE/PE as per the settings
 
 
 # Check if we need to set SL for this strategy
@@ -1136,7 +1239,7 @@ print(f"Nifty ATM : {nifty_atm}")
 # Prepare the list of option stikes for entry 
 #--------------------------------------------
 # Get list of CE/PE strikes 1000 pts on either side of the ATM from option chain # & (df.strike%100==0)
-lst_nifty_opt = df[(df.name=='NIFTY') & (df.expiry==expiry_date) & ((df.strike>=nifty_atm-1500) & (df.strike<=nifty_atm+1500)) ].tradingsymbol.apply(lambda x:'NFO:'+x).tolist()
+lst_nifty_opt = df[(df.name=='NIFTY') & (df.expiry==curr_expiry_date) & ((df.strike>=nifty_atm-1500) & (df.strike<=nifty_atm+1500)) ].tradingsymbol.apply(lambda x:'NFO:'+x).tolist()
 
 
 get_options()
@@ -1145,8 +1248,8 @@ get_options()
 # process_orders(kite)
 
 
-for kiteuser in kite_users:
-    place_option_orders_fixed(kiteuser)
+# for kiteuser in kite_users:
+#     place_option_orders_fixed(kiteuser)
 
 print("Test Complete")
 sys.exit(0)
