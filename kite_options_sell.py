@@ -34,7 +34,7 @@
 # Plan Tag based order management
 
 
-version = "1.2.1"
+version = "1.3.0"
 # Kite bypass api video (from TradeViaPython)
 # https://youtu.be/dLtWgpjsWdk?si=cPsQJpd0f1zkE4-N
 
@@ -416,7 +416,6 @@ if str(curr_expiry_date_BFO) in weekly_expiry_holiday_dates :
 
 
 
-
 iLog(f"dow = {dow} curr_expiry_date = {curr_expiry_date} curr_expiry_date_BFO = {curr_expiry_date_BFO}")
 
 
@@ -452,16 +451,6 @@ instruments = ["NSE:NIFTY 50","NSE:NIFTY BANK","BSE:SENSEX"]  # Add more indices
 
 # To find nifty open range to decide market bias (Long,Short,Neutral)
 nifty_olhc = kite.ohlc("NSE:NIFTY 50")
-# iLog(f"nifty_olhc={nifty_olhc}")
-# WIP - Need to work on this
-
-# print("Printing Kite.ltp()")
-# print(kite.ltp(instruments))
-
-# iLog(f"opt_instrument={opt_instrument}")
-# iLog(f"nifty_opt_ltp={nifty_opt_ltp}")
-# iLog(f"nifty_opt_ohlc={nifty_opt_ohlc}")
-# iLog(f"nifty_olhc={nifty_olhc}")
 
 # List of nifty options
 lst_nifty_opt = []
@@ -479,11 +468,6 @@ dict_nifty_opt_selected = {} # for storing the details of existing older option 
 ########################################################
 #        Declare Functions
 ########################################################
-def get_nifty_atm():
-    # Get Nifty ATM
-    # kite.ltp(instruments)[instruments[0]]["instrument_token"]
-    return round(int( kite.ltp(instruments)[instruments[0]]["last_price"] ),-2)
-
 
 def get_pivot_points(instrument_token):
     ''' Returns Pivot points dictionary for a given instrument token using previous day values
@@ -663,7 +647,6 @@ def get_options_NSE():
     instrument_token = str(df_nifty_opt_pe.iloc[0,0])
     dict_nifty_pe["last_price"] = kite.ltp(instrument_token)[instrument_token]['last_price']
     dict_nifty_pe["tradingsymbol"] = df_nifty_opt_pe.iloc[0,3]
-
 
 
 def place_option_orders(kiteuser,flgMeanReversion=False,flgPlaceSelectedOptionOrder=False):
@@ -858,10 +841,10 @@ def place_NSE_option_orders_fixed(kiteuser):
 
 
     # CE Market Order
-    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, dict_nifty_ce["last_price"] - 5.0)
+    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, round(dict_nifty_ce["last_price"] - 5.0,1))
 
     # PE Market Order
-    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, dict_nifty_pe["last_price"] - 5.0)
+    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, round(dict_nifty_pe["last_price"] - 5.0,1))
 
     # CE Order 2,3,4
     place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 30.0)
@@ -872,6 +855,7 @@ def place_NSE_option_orders_fixed(kiteuser):
     place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,30.0)
     place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,60.0)
     place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,90.0)
+
 
 def place_BSE_option_orders_fixed(kiteuser):
     '''
@@ -897,7 +881,6 @@ def place_BSE_option_orders_fixed(kiteuser):
     place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,30.0)
     place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,60.0)
     place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,90.0)
-
 
 
 def place_order(kiteuser,tradingsymbol,qty,limit_price=None,transaction_type=kite.TRANSACTION_TYPE_SELL,order_type=kite.ORDER_TYPE_LIMIT,tag="kite_options_sell"):
@@ -1233,8 +1216,13 @@ def exit_algo():
 
 
 # Get Nifty ATM
-nifty_atm = get_nifty_atm()
-print(f"Nifty ATM : {nifty_atm}")
+nifty_atm = round(int( kite.ltp(instruments)[instruments[0]]["last_price"] ),-2)
+sensex_atm = round(int( kite.ltp(instruments)[instruments[2]]["last_price"] ),-2)
+
+
+print(f"Nifty ATM : {nifty_atm} sensex_atm : {sensex_atm}")
+
+
 
 # Prepare the list of option stikes for entry 
 #--------------------------------------------
@@ -1242,14 +1230,15 @@ print(f"Nifty ATM : {nifty_atm}")
 lst_nifty_opt = df[(df.name=='NIFTY') & (df.expiry==curr_expiry_date) & ((df.strike>=nifty_atm-1500) & (df.strike<=nifty_atm+1500)) ].tradingsymbol.apply(lambda x:'NFO:'+x).tolist()
 
 
-get_options()
+
 
 # Test Area
 # process_orders(kite)
-
-
+# get_options()
 # for kiteuser in kite_users:
 #     place_option_orders_fixed(kiteuser)
+
+# strategy1()
 
 print("Test Complete")
 sys.exit(0)
