@@ -89,6 +89,12 @@ version = "1.3.0"
 # Entry : Trigger this strike only if market moves 0.5% either side. For each 0.5% move  the strike selection further.
 
 
+
+# pip install kiteconnect pyotp requests pandas
+#  
+
+
+
 import pyotp
 # from kiteext import KiteExt
 # from kiteext import *
@@ -282,11 +288,11 @@ flg_in5minBlock = False
 book_profit_eod_processed = 0
 
 
-all_variables = f"INI_FILE={INI_FILE} interval_seconds={interval_seconds}"\
-    f" stratgy1_entry_time={stratgy1_entry_time} nifty_opt_base_lot={nifty_opt_base_lot}"\
-    f" nifty_ce_max_price_limit={nifty_ce_max_price_limit} nifty_pe_max_price_limit={nifty_pe_max_price_limit}"\
-    f" carry_till_expiry_price={carry_till_expiry_price} stratgy2_entry_time={stratgy2_entry_time}"\
-    f" option_sell_type={option_sell_type} auto_profit_booking={auto_profit_booking}"
+# all_variables = f"INI_FILE={INI_FILE} interval_seconds={interval_seconds}"\
+#     f" stratgy1_entry_time={stratgy1_entry_time} nifty_opt_base_lot={nifty_opt_base_lot}"\
+#     f" nifty_ce_max_price_limit={nifty_ce_max_price_limit} nifty_pe_max_price_limit={nifty_pe_max_price_limit}"\
+#     f" carry_till_expiry_price={carry_till_expiry_price} stratgy2_entry_time={stratgy2_entry_time}"\
+#     f" option_sell_type={option_sell_type} auto_profit_booking={auto_profit_booking}"
 
 # iLog("Settings used : " + all_variables,True)
 
@@ -416,7 +422,7 @@ if str(curr_expiry_date_BFO) in weekly_expiry_holiday_dates :
 
 
 
-iLog(f"dow = {dow} curr_expiry_date = {curr_expiry_date} curr_expiry_date_BFO = {curr_expiry_date_BFO}")
+iLog(f"dow = {dow} curr_expiry_date = {curr_expiry_date} curr_expiry_date_BFO = {curr_expiry_date_BFO} next_expiry_date = {next_expiry_date}",True)
 
 
 # Get the trading levels and quantity multipliers to be followed for the day .e.g on Friday only trade reversion 3rd or 4th levels to be safe
@@ -1215,7 +1221,7 @@ def exit_algo():
 
 
 
-# Get Nifty ATM
+# Get ATM
 nifty_atm = round(int( kite.ltp(instruments)[instruments[0]]["last_price"] ),-2)
 sensex_atm = round(int( kite.ltp(instruments)[instruments[2]]["last_price"] ),-2)
 
@@ -1240,8 +1246,8 @@ lst_nifty_opt = df[(df.name=='NIFTY') & (df.expiry==curr_expiry_date) & ((df.str
 
 # strategy1()
 
-print("Test Complete")
-sys.exit(0)
+# print("Test Complete")
+# sys.exit(0)
 
 # Check current time
 cur_HHMM = int(datetime.datetime.now().strftime("%H%M"))
@@ -1264,6 +1270,7 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
         iLog(f"Triggering Strategy1...")
         strategy1()
     
+    # EOD profit booking / Squareoff
     elif eod_process_time==cur_HHMM:
         if book_profit_eod_processed == 0 :
             # Book profit at eod or loss in case expiry
@@ -1278,7 +1285,7 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
                 process_orders(kiteuser)
 
             except Exception as e:
-                iLog(f"[{kiteuser['userid']}] Exception '{e}' occured while processing process_orders(kiteuser) in for loop line 962.",True)
+                iLog(f"[{kiteuser['userid']}] Exception '{e}' occured while processing process_orders(kiteuser) in for loop line 1279.",True)
 
 
     # Find processing time and Log only if processing takes more than 2 seconds
