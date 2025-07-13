@@ -89,9 +89,7 @@ version = "1.3.0"
 # Entry : Trigger this strike only if market moves 0.5% either side. For each 0.5% move  the strike selection further.
 
 
-
 # pip install kiteconnect pyotp requests pandas
-#  
 
 
 
@@ -118,7 +116,7 @@ def Zerodha(user_id, password, totp, api_key, secret, tokpath):
         session = requests.Session()
         session_post = session.post(LOGINURL, data={
             "user_id": user_id, "password": password}).json()
-        iLog(f"{session_post=}")
+        # iLog(f"{session_post=}")
         if (
             session_post and
             isinstance(session_post, dict) and
@@ -206,7 +204,6 @@ def Zerodha(user_id, password, totp, api_key, secret, tokpath):
 # -- For API Based Login -----------------
 
 
-
 # For Logging and send messages to Telegram
 def iLog(strMsg,sendTeleMsg=False):
     print(f"{datetime.datetime.now()}|{strMsg}",flush=True)
@@ -216,256 +213,6 @@ def iLog(strMsg,sendTeleMsg=False):
         except:
             strMsg = "Telegram message failed."+strMsg
             print(f"{datetime.datetime.now()}|{strMsg}",flush=True)
-
-
-
-# If log folder is not present create it
-if not os.path.exists("./log") : os.makedirs("./log")
-
-
-########################################################
-#        Initialise Variables/parameters
-########################################################
-# Read parameters and settings from the .ini file
-INI_FILE = __file__[:-3]+".ini"
-cfg = configparser.ConfigParser()
-cfg.read(INI_FILE)
-
-
-log_to_file = int(cfg.get("tokens", "log_to_file"))
-# Initialise logging and set console and error target as log file
-LOG_FILE = r"./log/tradelog_" + datetime.datetime.now().strftime("%Y%m%d") +".log"
-if log_to_file: sys.stdout = sys.stderr = open(LOG_FILE, "a") # use flush=True parameter in print statement if values are not seen in log file
-
-
-strChatID = cfg.get("tokens", "chat_id")
-strBotToken = cfg.get("tokens", "bot_token")    #Bot include "bot" prefix in the token
-
-# Kept the below line here as telegram bot token is read from the .ini file in the above line 
-iLog(f"====== Starting Algo ({version}) ====== @ {datetime.datetime.now()}",True)
-iLog(f"Logging to file :{LOG_FILE}",True)
-
-nifty_ce_max_price_limit = int(cfg.get("info", "nifty_ce_max_price_limit")) # 51
-nifty_pe_max_price_limit = int(cfg.get("info", "nifty_pe_max_price_limit")) # 51
-
-short_strangle_time = int(cfg.get("info", "short_strangle_time"))   # 925
-short_strangle_flag = False
-
-# Time interval in seconds. Order processing happens after every interval seconds
-interval_seconds = int(cfg.get("info", "interval_seconds"))   # 30
-
-#List of thursdays when its NSE holiday
-weekly_expiry_holiday_dates = cfg.get("info", "weekly_expiry_holiday_dates").split(",") # 2023-01-26,2023-03-30,2024-08-15
-
-# List of days in number for which next week expiry needs to be selected, else use current week expiry
-next_week_expiry_days = list(map(int,cfg.get("info", "next_week_expiry_days").split(",")))
-
-# Get base lot and qty 
-nifty_opt_base_lot = int(cfg.get("info", "nifty_opt_base_lot"))         # 1
-nifty_opt_per_lot_qty = int(cfg.get("info", "nifty_opt_per_lot_qty"))   # 50
-
-nifty_avg_margin_req_per_lot = int(cfg.get("info", "nifty_avg_margin_req_per_lot"))
-
-
-# carry_till_expiry_price Might need a dict for all days of week settings
-carry_till_expiry_price = float(cfg.get("info", "carry_till_expiry_price"))  # 20
-
-# stratgy2_enabled = int(cfg.get("info", "stratgy2_enabled"))
-
-###### Realtime Config Parameters for the first user  #################
-# replicate the below in get_realtime_config()
-option_sell_type = cfg.get("realtime", "option_sell_type")
-stratgy1_entry_time = int(cfg.get("realtime", "stratgy1_entry_time"))
-stratgy2_entry_time = int(cfg.get("realtime", "stratgy2_entry_time"))
-auto_profit_booking = int(cfg.get("realtime", "auto_profit_booking"))   # 0 is default i.e automatic profit booking is disabled, 1 to enable auto profit booking
-
-
-# profit_booking_qty_perc = int(cfg.get("info", "profit_booking_qty_perc"))  
-eod_process_time = int(cfg.get("info", "eod_process_time")) # Time at which the eod process needs to run. Usually final profit/loss booking(in case of expiry)
-
-flg_in5minBlock = False
-
-book_profit_eod_processed = 0
-
-
-# all_variables = f"INI_FILE={INI_FILE} interval_seconds={interval_seconds}"\
-#     f" stratgy1_entry_time={stratgy1_entry_time} nifty_opt_base_lot={nifty_opt_base_lot}"\
-#     f" nifty_ce_max_price_limit={nifty_ce_max_price_limit} nifty_pe_max_price_limit={nifty_pe_max_price_limit}"\
-#     f" carry_till_expiry_price={carry_till_expiry_price} stratgy2_entry_time={stratgy2_entry_time}"\
-#     f" option_sell_type={option_sell_type} auto_profit_booking={auto_profit_booking}"
-
-# iLog("Settings used : " + all_variables,True)
-
-
-
-# Ravigupta code
-# import requests, json, pyotp
-# from kiteconnect import KiteConnect
-# from urllib.parse import urlparse
-# from urllib.parse import parse_qs
-# def login(api_key, api_secret, user_id, user_password, totp_key):
-#     http_session = requests.Session()
-#     url = http_session.get(url='https://kite.trade/connect/login?v=3&api_key='+api_key).url
-#     response = http_session.post(url='https://kite.zerodha.com/api/login', data={'user_id':user_id, 'password':user_password})
-#     resp_dict = json.loads(response.content)
-#     http_session.post(url='https://kite.zerodha.com/api/twofa', data={'user_id':user_id, 'request_id':resp_dict["data"]["request_id"], 'twofa_value':pyotp.TOTP(totp_key).now()})
-#     url = url + "&skip_session=true"
-#     response = http_session.get(url=url, allow_redirects=True).url
-#     request_token = parse_qs(urlparse(response).query)['request_token'][0]
-
-#     kite = KiteConnect(api_key=api_key)
-#     data = kite.generate_session(request_token, api_secret=api_secret)
-#     kite.set_access_token(data["access_token"])
-
-#     return kite
-
-
-
-
-
-# Login and get kite objects for multiple users 
-# ---------------------------------------------
-# Manually authorise first time this url for each user f"https://kite.trade/connect/login?api_key={api_key}"
-kite_users = []
-for section in cfg.sections():
-    user={}
-
-    if section[0:5]=='user-':
-
-        user['userid'] = cfg.get(section, "userid")
-        user['password'] = cfg.get(section, "password")
-        user['totp_key'] = cfg.get(section, "totp_key")
-        user['api_key'] = cfg.get(section, "api_key")
-        user['api_secret']  = cfg.get(section, "api_secret")
-        user['profit_booking_type'] = cfg.get(section, "profit_booking_type")   # PERCENT | PIVOT
-        user['profit_target_perc'] = float(cfg.get(section, "profit_target_perc"))
-        user['loss_limit_perc'] = float(cfg.get(section, "loss_limit_perc"))
-        user['profit_booking_qty_perc'] = int(cfg.get(section, "profit_booking_qty_perc"))
-        user['virtual_trade'] = int(cfg.get(section, "virtual_trade"))
-        user['nifty_opt_base_lot'] = int(cfg.get(section, "nifty_opt_base_lot"))
-        user['bank_opt_base_lot'] = int(cfg.get(section, "bank_opt_base_lot"))
-
-
-        if  cfg.get(section, "root") == 'Y':
-            # This part takes care of creating the root kite object which has the API access enabled
-            
-            try:
-
-                kite = Zerodha(user['userid'] , user['password'], user['totp_key'], user['api_key'], user['api_secret'], "tokpath.txt")
-
-                iLog(f"Root User {user['userid']} Logged in successfuly.",True)
-
-                if cfg.get(section, "active")=='Y': #Root user may not be active in trading
-                    user["kite_object"] = kite
-                    kite_users.append(user)
-                    iLog(f"Root User {user['userid']} is Active in Trading.",True)
-
-
-            except Exception as e:
-                iLog(f"Unable to login root user. Pls check credentials. {e}",True)
-        
-        
-        elif  cfg.get(section, "active")=='Y':
-
-            try:
-                user["kite_object"] = Zerodha(user['userid'] , user['password'], user['totp_key'], user['api_key'], user['api_secret'], "tokpath.txt")
-                user["partial_profit_booked_flg"]=0    # Initialise partial profit booking flag; Set this to 1 if partial profit booking is done.
-
-                kite_users.append(user)
-
-                iLog(f"[{user['userid'] }] User Logged in successfuly.",True)
-
-            except Exception as e:
-                iLog(f"[{user['userid'] }] Unable to login user. Pls check credentials. {e}",True)
-
-
-
-if len(kite_users)<1:
-    iLog(f"Unable to load or No users found in the .ini file",True)
-    sys.exit(0)
-
-
-# sys.exit(0)
-
-# Set kite object to the first user to retrive LTP and other common info; user specific kite info needs to be accessed by kiteuser[n]["kite_object"] 
-# kite = kite_users[0]["kite_object"]
-
-
-# # Get the latest TOTP
-# totp = pyotp.TOTP(totp_key).now()
-# twoFA = f"{int(totp):06d}" if len(totp) <=5 else totp   # Suffix zeros if length of the totp is less than 5 digits
-
-# # Authenticate using kite bypass and get Kite object
-# kite = KiteExt(user_id=user_id, password=password, twofa=twoFA)
-# # iLog(f"totp={twoFA}")
-
-
-
-
-# Get current/next week expiry 
-# ----------------------------
-# if today is tue or wed then use next expiry else use current expiry. .isoweekday() 1 = Monday, 2 = Tuesday
-dow = datetime.date.today().isoweekday()    # Also used in placing orders 
-next_expiry_date = datetime.date.today() + datetime.timedelta( ((3-datetime.date.today().weekday()) % 7)+7 )
-curr_expiry_date = datetime.date.today() + datetime.timedelta( ((3-datetime.date.today().weekday()) % 7))
-
-curr_expiry_date_BFO = datetime.date.today() + datetime.timedelta( ((1-datetime.date.today().weekday()) % 7))
-
-if str(curr_expiry_date) in weekly_expiry_holiday_dates :
-    curr_expiry_date = curr_expiry_date - datetime.timedelta(days=1)
-
-if str(next_expiry_date) in weekly_expiry_holiday_dates :
-    next_expiry_date = next_expiry_date - datetime.timedelta(days=1)
-
-if str(curr_expiry_date_BFO) in weekly_expiry_holiday_dates :
-    curr_expiry_date_BFO = curr_expiry_date_BFO - datetime.timedelta(days=1)
-
-
-
-iLog(f"dow = {dow} curr_expiry_date = {curr_expiry_date} curr_expiry_date_BFO = {curr_expiry_date_BFO} next_expiry_date = {next_expiry_date}",True)
-
-
-# Get the trading levels and quantity multipliers to be followed for the day .e.g on Friday only trade reversion 3rd or 4th levels to be safe
-lst_ord_lvl_reg =  eval(cfg.get("info", "ord_sizing_lvls_reg"))[dow]
-lst_ord_lvl_mr =  eval(cfg.get("info", "ord_sizing_lvls_mr"))[dow]
-lst_qty_multiplier_reg = eval(cfg.get("info", "qty_multiplier_per_lvls_reg"))[dow]
-lst_qty_multiplier_mr = eval(cfg.get("info", "qty_multiplier_per_lvls_mr"))[dow]
-
-
-iLog(f"dow={dow} lst_ord_lvl_reg={lst_ord_lvl_reg} lst_ord_lvl_mr={lst_ord_lvl_mr} lst_qty_multiplier_reg={lst_qty_multiplier_reg} lst_qty_multiplier_mr={lst_qty_multiplier_mr}")
-
-# Will need to add banknifty here later if required
-# Get option instruments for the current and next expiry
-while True:
-    try:
-        df = pd.DataFrame(kite.instruments("NFO"))
-        df_BFO = pd.DataFrame(kite.instruments("BFO")) 
-        break
-    except Exception as ex:
-        iLog(f"Exception occurred {ex}. Will wait for 10 seconds before retry.",True)
-        time.sleep(10)
-
-df = df[ (df.segment=='NFO-OPT')  & (df.name=='NIFTY') & (df.expiry==curr_expiry_date) ]
-df_BFO = df_BFO[ (df_BFO.segment=='BFO-OPT')  & (df_BFO.name=='SENSEX') & (df_BFO.expiry==curr_expiry_date_BFO) ]  
-
-
-# Get a dict of instrument_token and expiry for getting the expiry in the get_positions()
-dict_token_expiry = df.set_index('instrument_token').to_dict()['expiry']
-
-# Get NIfty and BankNifty instrument data
-instruments = ["NSE:NIFTY 50","NSE:NIFTY BANK","BSE:SENSEX"]  # Add more indices if needed
-
-# To find nifty open range to decide market bias (Long,Short,Neutral)
-nifty_olhc = kite.ohlc("NSE:NIFTY 50")
-
-# List of nifty options
-lst_nifty_opt = []
-
-
-# Dictionary to store single row of call /  put option details
-dict_nifty_ce = {}
-dict_nifty_pe = {}
-dict_nifty_opt_selected = {} # for storing the details of existing older option position which needs reversion
 
 
 
@@ -618,7 +365,7 @@ def get_options_NSE():
     global dict_nifty_ce, dict_nifty_pe
 
     
-    iLog(f"In get_options_NSE():")
+    iLog(f"get_options_NSE():")
 
     # Get ltp for the list of filtered CE/PE strikes 
     # print("lst_nifty_opt:\n{lst_nifty_opt}")
@@ -889,8 +636,19 @@ def place_BSE_option_orders_fixed(kiteuser):
     place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,90.0)
 
 
-def place_order(kiteuser,tradingsymbol,qty,limit_price=None,transaction_type=kite.TRANSACTION_TYPE_SELL,order_type=kite.ORDER_TYPE_LIMIT,tag="kite_options_sell"):
+def place_order(kiteuser,tradingsymbol,qty,limit_price=None,transaction_type=None,order_type=None,tag="kite_options_sell"):
     
+
+    kite_obj = kiteuser["kite_object"]
+
+    # 
+    if transaction_type is None:
+        transaction_type = kite_obj.TRANSACTION_TYPE_SELL
+
+    if order_type is None:
+        order_type = kite_obj.ORDER_TYPE_LIMIT
+
+
     # Place orders for all users
     if kiteuser['virtual_trade']:
         iLog(f"[{kiteuser['userid']}] place_order(): Placing virtual order : tradingsymbol={tradingsymbol}, qty={qty}, limit_price={limit_price}, transaction_type={transaction_type}",True )
@@ -900,15 +658,15 @@ def place_order(kiteuser,tradingsymbol,qty,limit_price=None,transaction_type=kit
     
     # If not virtual trade, execute order on exchange
     try:
-        order_id = kiteuser["kite_object"].place_order(variety=kite.VARIETY_REGULAR,
-                            exchange=kite.EXCHANGE_NFO,
+        order_id = kiteuser["kite_object"].place_order(variety=kite_obj.VARIETY_REGULAR,
+                            exchange=kite_obj.EXCHANGE_NFO,
                             tradingsymbol=tradingsymbol,
                             transaction_type=transaction_type,
                             quantity=qty,
-                            product=kite.PRODUCT_NRML,
+                            product=kite_obj.PRODUCT_NRML,
                             order_type=order_type,
                             price=limit_price,
-                            validity=kite.VALIDITY_DAY,
+                            validity=kite_obj.VALIDITY_DAY,
                             tag=tag )
 
         iLog(f"[{kiteuser['userid']}] place_order(): Order Placed. order_id={order_id}",True)
@@ -919,7 +677,7 @@ def place_order(kiteuser,tradingsymbol,qty,limit_price=None,transaction_type=kit
         return False
 
 
-def process_orders(kiteuser=kite,flg_place_orders=False):
+def process_orders(kiteuser,flg_place_orders=False):
     '''
     Check the status of orders/squareoff/add positions
     '''
@@ -968,7 +726,7 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
         mtm = round(sum(df_pos.mtm),2)
 
         # position/quantity will be applicable for each symbol
-        strMsg = strMsgSuffix + f" Existing position available. Overall mtm={mtm} profit_target={profit_target} net_margin_utilised={net_margin_utilised} kite_margin={kite_margin}" 
+        strMsg = strMsgSuffix + f" Existing position {pos} available. Overall mtm={mtm} profit_target={profit_target} net_margin_utilised={net_margin_utilised} kite_margin={kite_margin}" 
         if int(time.time())%180 == 0 :  # Wait for 3 mins to print into log
             iLog(strMsg,True)
 
@@ -977,10 +735,10 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
         if kiteuser['profit_booking_type']=="PIVOT":
             pass
         else:
-            if auto_profit_booking == 1 :
+            if kiteuser['auto_profit_booking'] == 1 :
                 book_profit_PERC(kiteuser,df_pos)
             else:
-                iLog("Auto Profit booking disabled !")
+                iLog(strMsgSuffix+" Auto Profit booking disabled !")
         
         loss_limit_perc = kiteuser['loss_limit_perc']
         current_mtm_perc = round((mtm / net_margin_utilised)*100,1)
@@ -989,7 +747,7 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
 
 
         # In case of existing positions Check if loss needs to be booked
-        if current_mtm_perc < 0:
+        if current_mtm_perc < 0 and kiteuser['auto_profit_booking'] == 1:
             if abs(current_mtm_perc) > loss_limit_perc:
                 iLog(strMsgSuffix + f" Booking Loss for option positions. MTM {mtm} current_mtm_perc={current_mtm_perc} loss_limit_perc={loss_limit_perc}")
                 for opt in df_pos.itertuples():
@@ -1008,7 +766,6 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
                         
                         place_order(kiteuser, tradingsymbol=tradingsymbol, qty=qty, limit_price=limit_price, transaction_type=transaction_type)
 
-
             else:
                 # Apply Mean Reversion
                 # Check if order is alredy there and pending
@@ -1026,7 +783,7 @@ def process_orders(kiteuser=kite,flg_place_orders=False):
 
 def get_positions(kiteuser):
     '''Returns dataframe columns (m2m,quantity) with net values for Options only'''
-    iLog(f"[{kiteuser['userid']}] In get_positions():")
+    iLog(f"[{kiteuser['userid']}] get_positions():")
 
     # Calculae mtm manually as the m2m is 2-3 mins delayed in kite as per public
     try:
@@ -1079,18 +836,9 @@ def strategy1():
     Place nifty CE and PE fixed orders on wed morning
     '''
     
-    iLog(f"In strategy1():")
+    iLog(f"strategy1():")
     
     # Check day of week
-    if dow == 3:  # Wednesday
-        get_options_NSE()   # Get the latest options as per the settings  
-        
-        for kiteuser in kite_users:
-            # Will need to give strike selection method (price based or ATM based)
-            # process_orders(kiteuser,True)    
-            place_NSE_option_orders_fixed(kiteuser)  # Place fixed orders for CE/PE as per the settings
-
-
     if dow == 1:  # Monday
         get_options()   # Get the latest options as per the settings  
         
@@ -1098,6 +846,20 @@ def strategy1():
             # Will need to give strike selection method (price based or ATM based)
             # process_orders(kiteuser,True)    
             place_BSE_option_orders_fixed(kiteuser)  # Place fixed orders for CE/PE as per the settings
+    
+    elif dow == 2:  # Tuesday
+        pass
+    
+    elif dow == 3:  # Wednesday
+        get_options_NSE()   # Get the latest options as per the settings  
+        
+        for kiteuser in kite_users:
+            # Will need to give strike selection method (price based or ATM based)
+            # process_orders(kiteuser,True)    
+            place_NSE_option_orders_fixed(kiteuser)  # Place fixed orders for CE/PE as per the settings
+
+    elif dow == 4:  # Thursday
+        pass
 
 
 # Check if we need to set SL for this strategy
@@ -1180,13 +942,12 @@ def get_realtime_config():
     '''
     global option_sell_type, stratgy1_entry_time, stratgy2_entry_time, auto_profit_booking
 
-    iLog("Getting Realtime config parameter") 
+    iLog("get_realtime_config") 
     cfg.read(INI_FILE)
 
     option_sell_type = cfg.get("realtime", "option_sell_type")
     stratgy1_entry_time = int(cfg.get("realtime", "stratgy1_entry_time"))
     stratgy2_entry_time = int(cfg.get("realtime", "stratgy2_entry_time"))
-    auto_profit_booking = int(cfg.get("realtime", "auto_profit_booking"))
 
 
 def get_pcr():
@@ -1221,12 +982,264 @@ def exit_algo():
 
 
 
+# If log folder is not present create it
+if not os.path.exists("./log") : os.makedirs("./log")
+
+
+########################################################
+#        Initialise Variables/parameters
+########################################################
+# Read parameters and settings from the .ini file
+INI_FILE = __file__[:-3]+".ini"
+cfg = configparser.ConfigParser()
+cfg.read(INI_FILE)
+
+
+log_to_file = int(cfg.get("tokens", "log_to_file"))
+# Initialise logging and set console and error target as log file
+LOG_FILE = r"./log/tradelog_" + datetime.datetime.now().strftime("%Y%m%d") +".log"
+if log_to_file: sys.stdout = sys.stderr = open(LOG_FILE, "a") # use flush=True parameter in print statement if values are not seen in log file
+
+
+strChatID = cfg.get("tokens", "chat_id")
+strBotToken = cfg.get("tokens", "bot_token")    #Bot include "bot" prefix in the token
+
+# Kept the below line here as telegram bot token is read from the .ini file in the above line 
+iLog(f"====== Starting Algo ({version}) ====== @ {datetime.datetime.now()}",True)
+iLog(f"Logging to file :{LOG_FILE}",True)
+
+nifty_ce_max_price_limit = int(cfg.get("info", "nifty_ce_max_price_limit")) # 51
+nifty_pe_max_price_limit = int(cfg.get("info", "nifty_pe_max_price_limit")) # 51
+
+short_strangle_time = int(cfg.get("info", "short_strangle_time"))   # 925
+short_strangle_flag = False
+
+# Time interval in seconds. Order processing happens after every interval seconds
+interval_seconds = int(cfg.get("info", "interval_seconds"))   # 30
+
+#List of thursdays when its NSE holiday
+weekly_expiry_holiday_dates = cfg.get("info", "weekly_expiry_holiday_dates").split(",") # 2023-01-26,2023-03-30,2024-08-15
+
+# List of days in number for which next week expiry needs to be selected, else use current week expiry
+next_week_expiry_days = list(map(int,cfg.get("info", "next_week_expiry_days").split(",")))
+
+# Get base lot and qty 
+nifty_opt_base_lot = int(cfg.get("info", "nifty_opt_base_lot"))         # 1
+nifty_opt_per_lot_qty = int(cfg.get("info", "nifty_opt_per_lot_qty"))   # 50
+
+nifty_avg_margin_req_per_lot = int(cfg.get("info", "nifty_avg_margin_req_per_lot"))
+
+
+# carry_till_expiry_price Might need a dict for all days of week settings
+carry_till_expiry_price = float(cfg.get("info", "carry_till_expiry_price"))  # 20
+
+# stratgy2_enabled = int(cfg.get("info", "stratgy2_enabled"))
+
+###### Realtime Config Parameters for the first user  #################
+# replicate the below in get_realtime_config()
+option_sell_type = cfg.get("realtime", "option_sell_type")
+stratgy1_entry_time = int(cfg.get("realtime", "stratgy1_entry_time"))
+stratgy2_entry_time = int(cfg.get("realtime", "stratgy2_entry_time"))
+
+
+# profit_booking_qty_perc = int(cfg.get("info", "profit_booking_qty_perc"))  
+eod_process_time = int(cfg.get("info", "eod_process_time")) # Time at which the eod process needs to run. Usually final profit/loss booking(in case of expiry)
+
+
+
+book_profit_eod_processed = 0
+
+
+# all_variables = f"INI_FILE={INI_FILE} interval_seconds={interval_seconds}"\
+#     f" stratgy1_entry_time={stratgy1_entry_time} nifty_opt_base_lot={nifty_opt_base_lot}"\
+#     f" nifty_ce_max_price_limit={nifty_ce_max_price_limit} nifty_pe_max_price_limit={nifty_pe_max_price_limit}"\
+#     f" carry_till_expiry_price={carry_till_expiry_price} stratgy2_entry_time={stratgy2_entry_time}"\
+#     f" option_sell_type={option_sell_type} auto_profit_booking={auto_profit_booking}"
+
+# iLog("Settings used : " + all_variables,True)
+
+
+
+# Ravigupta code
+# import requests, json, pyotp
+# from kiteconnect import KiteConnect
+# from urllib.parse import urlparse
+# from urllib.parse import parse_qs
+# def login(api_key, api_secret, user_id, user_password, totp_key):
+#     http_session = requests.Session()
+#     url = http_session.get(url='https://kite.trade/connect/login?v=3&api_key='+api_key).url
+#     response = http_session.post(url='https://kite.zerodha.com/api/login', data={'user_id':user_id, 'password':user_password})
+#     resp_dict = json.loads(response.content)
+#     http_session.post(url='https://kite.zerodha.com/api/twofa', data={'user_id':user_id, 'request_id':resp_dict["data"]["request_id"], 'twofa_value':pyotp.TOTP(totp_key).now()})
+#     url = url + "&skip_session=true"
+#     response = http_session.get(url=url, allow_redirects=True).url
+#     request_token = parse_qs(urlparse(response).query)['request_token'][0]
+
+#     kite = KiteConnect(api_key=api_key)
+#     data = kite.generate_session(request_token, api_secret=api_secret)
+#     kite.set_access_token(data["access_token"])
+
+#     return kite
+
+
+
+
+
+# Login and get kite objects for multiple users 
+# ---------------------------------------------
+# Manually authorise first time this url for each user f"https://kite.trade/connect/login?api_key={api_key}"
+kite_users = []
+for section in cfg.sections():
+    user={}
+
+    if section[0:5]=='user-':
+
+        user['userid'] = cfg.get(section, "userid")
+        user['password'] = cfg.get(section, "password")
+        user['totp_key'] = cfg.get(section, "totp_key")
+        user['api_key'] = cfg.get(section, "api_key")
+        user['api_secret']  = cfg.get(section, "api_secret")
+        user['profit_booking_type'] = cfg.get(section, "profit_booking_type")   # PERCENT | PIVOT
+        user['profit_target_perc'] = float(cfg.get(section, "profit_target_perc"))
+        user['loss_limit_perc'] = float(cfg.get(section, "loss_limit_perc"))
+        user['profit_booking_qty_perc'] = int(cfg.get(section, "profit_booking_qty_perc"))
+        user['virtual_trade'] = int(cfg.get(section, "virtual_trade"))
+        user['nifty_opt_base_lot'] = int(cfg.get(section, "nifty_opt_base_lot"))
+        user['bank_opt_base_lot'] = int(cfg.get(section, "bank_opt_base_lot"))
+        user['auto_profit_booking'] = int(cfg.get(section, "auto_profit_booking"))
+        
+
+
+
+        if  cfg.get(section, "root") == 'Y':
+            # This part takes care of creating the root kite object which has the API access enabled
+            
+            try:
+
+                kite = Zerodha(user['userid'] , user['password'], user['totp_key'], user['api_key'], user['api_secret'], "tokpath.txt")
+
+                iLog(f"Root User {user['userid']} Logged in successfuly.",True)
+
+                if cfg.get(section, "active")=='Y': #Root user may not be active in trading
+                    user["kite_object"] = kite
+                    kite_users.append(user)
+                    iLog(f"Root User {user['userid']} is Active in Trading.",True)
+
+
+            except Exception as e:
+                iLog(f"Unable to login root user. Pls check credentials. {e}",True)
+        
+        
+        elif  cfg.get(section, "active")=='Y':
+
+            try:
+                user["kite_object"] = Zerodha(user['userid'] , user['password'], user['totp_key'], user['api_key'], user['api_secret'], "tokpath.txt")
+                user["partial_profit_booked_flg"]=0    # Initialise partial profit booking flag; Set this to 1 if partial profit booking is done.
+
+                kite_users.append(user)
+
+                iLog(f"[{user['userid'] }] User Logged in successfuly.",True)
+
+            except Exception as e:
+                iLog(f"[{user['userid'] }] Unable to login user. Pls check credentials. {e}",True)
+
+
+
+if len(kite_users)<1:
+    iLog(f"Unable to load or No users found in the .ini file",True)
+    sys.exit(0)
+
+
+# sys.exit(0)
+
+# Set kite object to the first user to retrive LTP and other common info; user specific kite info needs to be accessed by kiteuser[n]["kite_object"] 
+# kite = kite_users[0]["kite_object"]
+
+
+# # Get the latest TOTP
+# totp = pyotp.TOTP(totp_key).now()
+# twoFA = f"{int(totp):06d}" if len(totp) <=5 else totp   # Suffix zeros if length of the totp is less than 5 digits
+
+# # Authenticate using kite bypass and get Kite object
+# kite = KiteExt(user_id=user_id, password=password, twofa=twoFA)
+# # iLog(f"totp={twoFA}")
+
+
+
+
+# Get current/next week expiry 
+# ----------------------------
+# if today is tue or wed then use next expiry else use current expiry. .isoweekday() 1 = Monday, 2 = Tuesday
+dow = datetime.date.today().isoweekday()    # Also used in placing orders 
+next_expiry_date = datetime.date.today() + datetime.timedelta( ((3-datetime.date.today().weekday()) % 7)+7 )
+curr_expiry_date = datetime.date.today() + datetime.timedelta( ((3-datetime.date.today().weekday()) % 7))
+
+curr_expiry_date_BFO = datetime.date.today() + datetime.timedelta( ((1-datetime.date.today().weekday()) % 7))
+
+if str(curr_expiry_date) in weekly_expiry_holiday_dates :
+    curr_expiry_date = curr_expiry_date - datetime.timedelta(days=1)
+
+if str(next_expiry_date) in weekly_expiry_holiday_dates :
+    next_expiry_date = next_expiry_date - datetime.timedelta(days=1)
+
+if str(curr_expiry_date_BFO) in weekly_expiry_holiday_dates :
+    curr_expiry_date_BFO = curr_expiry_date_BFO - datetime.timedelta(days=1)
+
+
+
+iLog(f"dow = {dow} curr_expiry_date = {curr_expiry_date} curr_expiry_date_BFO = {curr_expiry_date_BFO} next_expiry_date = {next_expiry_date}",True)
+
+
+# Get the trading levels and quantity multipliers to be followed for the day .e.g on Friday only trade reversion 3rd or 4th levels to be safe
+lst_ord_lvl_reg =  eval(cfg.get("info", "ord_sizing_lvls_reg"))[dow]
+lst_ord_lvl_mr =  eval(cfg.get("info", "ord_sizing_lvls_mr"))[dow]
+lst_qty_multiplier_reg = eval(cfg.get("info", "qty_multiplier_per_lvls_reg"))[dow]
+lst_qty_multiplier_mr = eval(cfg.get("info", "qty_multiplier_per_lvls_mr"))[dow]
+
+
+iLog(f"dow={dow} lst_ord_lvl_reg={lst_ord_lvl_reg} lst_ord_lvl_mr={lst_ord_lvl_mr} lst_qty_multiplier_reg={lst_qty_multiplier_reg} lst_qty_multiplier_mr={lst_qty_multiplier_mr}")
+
+# Will need to add banknifty here later if required
+# Get option instruments for the current and next expiry
+while True:
+    try:
+        df = pd.DataFrame(kite.instruments("NFO"))
+        df_BFO = pd.DataFrame(kite.instruments("BFO")) 
+        break
+    except Exception as ex:
+        iLog(f"Exception occurred {ex}. Will wait for 10 seconds before retry.",True)
+        time.sleep(10)
+
+df = df[ (df.segment=='NFO-OPT')  & (df.name=='NIFTY') & (df.expiry==curr_expiry_date) ]
+df_BFO = df_BFO[ (df_BFO.segment=='BFO-OPT')  & (df_BFO.name=='SENSEX') & (df_BFO.expiry==curr_expiry_date_BFO) ]  
+
+
+# Get a dict of instrument_token and expiry for getting the expiry in the get_positions()
+dict_token_expiry = df.set_index('instrument_token').to_dict()['expiry']
+
+# Get NIfty and BankNifty instrument data
+instruments = ["NSE:NIFTY 50","NSE:NIFTY BANK","BSE:SENSEX"]  # Add more indices if needed
+
+# To find nifty open range to decide market bias (Long,Short,Neutral)
+nifty_olhc = kite.ohlc("NSE:NIFTY 50")
+
+# List of nifty options
+lst_nifty_opt = []
+
+
+# Dictionary to store single row of call /  put option details
+dict_nifty_ce = {}
+dict_nifty_pe = {}
+dict_nifty_opt_selected = {} # for storing the details of existing older option position which needs reversion
+
+
+
 # Get ATM
 nifty_atm = round(int( kite.ltp(instruments)[instruments[0]]["last_price"] ),-2)
 sensex_atm = round(int( kite.ltp(instruments)[instruments[2]]["last_price"] ),-2)
 
 
-print(f"Nifty ATM : {nifty_atm} sensex_atm : {sensex_atm}")
+iLog(f"Nifty ATM : {nifty_atm} sensex_atm : {sensex_atm}")
 
 
 
@@ -1251,17 +1264,12 @@ lst_nifty_opt = df[(df.name=='NIFTY') & (df.expiry==curr_expiry_date) & ((df.str
 
 # Check current time
 cur_HHMM = int(datetime.datetime.now().strftime("%H%M"))
-previous_min = 0
-if cur_HHMM > 914 and cur_HHMM < 1531:
-    iLog(f"Processing in {interval_seconds} seconds interval loop... {cur_HHMM}",True)
-else:
-    iLog(f"Non Market Hours... {cur_HHMM}",True)
 
+nxt_5min = time.time() 
+nxt_2min = time.time() 
 
 # Process as per start and end of market timing
-while cur_HHMM > 914 and cur_HHMM < 1531:
-# while True:
-    
+while cur_HHMM > 913 and cur_HHMM < 1631:
 
     t1 = time.time()
 
@@ -1278,6 +1286,7 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
                 book_profit_eod(kiteuser)
 
             book_profit_eod_processed = 1
+        eod_process_time = 0
 
     else:
         for kiteuser in kite_users:
@@ -1291,7 +1300,7 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
     # Find processing time and Log only if processing takes more than 2 seconds
     t2 = time.time() - t1
     # iLog(f"Processing Time(secs) = {t2:.2f}",True)
-    # iLog(f"previous_min={previous_min} cur_min={cur_min} cur_HHMM={cur_HHMM} : Processing Time={t2:.2f}")
+    # iLog(f"cur_min={cur_min} cur_HHMM={cur_HHMM} : Processing Time={t2:.2f}")
     if t2 > 2.0: 
         iLog(f"Alert! Increased Processing time(secs) = {t2:.2f}",True)
 
@@ -1301,18 +1310,21 @@ while cur_HHMM > 914 and cur_HHMM < 1531:
     time.sleep(interval_seconds)   # Process the loop after every n seconds
 
     # Get the realtime config information every 2 mins
-    if cur_HHMM%2 == 0: 
-        flg_in5minBlock == False
+    if time.time()>nxt_2min: 
+        nxt_2min = time.time() + (2 * 60)
+        iLog("In 2 mins block")
         get_realtime_config()
 
 
 
-    if cur_HHMM%5 == 0 and flg_in5minBlock == False:
-        flg_in5minBlock == True # So that the code only runs once in the 5min code block
-    # Print MTM for each user every 5 mins
+    if time.time()>nxt_5min:
+        nxt_5min = time.time() + (5 * 60)
+        iLog("In 5 mins block")
+        # Print MTM for each user every 5 mins
         for kiteuser in kite_users:
             df_pos = get_positions(kiteuser)
             iLog( f"[{kiteuser['userid']}] mtm = {round(sum(df_pos.mtm),2)} net_positon = {sum(df_pos.quantity)}",sendTeleMsg=True) 
+
 
     # End of algo activities
 
