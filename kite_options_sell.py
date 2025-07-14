@@ -726,8 +726,8 @@ def process_orders(kiteuser,flg_place_orders=False):
         mtm = round(sum(df_pos.mtm),2)
 
         # position/quantity will be applicable for each symbol
-        strMsg = strMsgSuffix + f" Existing position {pos} available. Overall mtm={mtm} profit_target={profit_target} net_margin_utilised={net_margin_utilised} kite_margin={kite_margin}" 
         if int(time.time())%180 == 0 :  # Wait for 3 mins to print into log
+            strMsg = strMsgSuffix + f" Existing position {pos} available. Overall mtm={mtm} profit_target={profit_target} net_margin_utilised={net_margin_utilised} kite_margin={kite_margin}" 
             iLog(strMsg,True)
 
         # May be revised based on the overall profit strategy
