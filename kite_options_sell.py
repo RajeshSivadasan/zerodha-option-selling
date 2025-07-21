@@ -402,6 +402,49 @@ def get_options_NSE():
     dict_nifty_pe["tradingsymbol"] = df_nifty_opt_pe.iloc[0,3]
 
 
+def get_options_BSE():
+    '''
+    Gets the call and put option in the global df objects (dict_sensex_ce, dict_sensex_pe) 
+    '''
+    global dict_sensex_ce, dict_sensex_pe
+
+    
+    iLog(f"get_options_BSE():")
+
+  
+    dict_sensex_opt_ltp = kite.ltp(lst_sensex_opt)
+
+    # Convert the option ltp dict to dataframe for filtering option
+    df_sensex_opt = pd.DataFrame.from_dict(dict_sensex_opt_ltp,orient='index')
+
+    df_sensex_opt['type']= df_sensex_opt.index.str[-2:]               # Create type column
+    df_sensex_opt['tradingsymbol'] = df_sensex_opt.index.str[4:]      # Create tradingsymbol column
+
+    # print("df_sensex_opt:=\n{df_sensex_opt}")
+
+
+    # Check if we can use Dask to parallelize the operations
+    # If no instrument token passed then get default options for both CE and PE
+    # Get the CE/PE instrument data(instrument_token,last_price,type,symbol) where last_price is maximum but less than equal to option max price limit (e.g <=200)
+    df_sensex_opt_ce = df_sensex_opt[(df_sensex_opt.type=='CE') & (df_sensex_opt.last_price==df_sensex_opt[(df_sensex_opt.type=='CE') & (df_sensex_opt.last_price<=sensex_ce_max_price_limit)].last_price.max())]
+    df_sensex_opt_pe = df_sensex_opt[(df_sensex_opt.type=='PE') & (df_sensex_opt.last_price==df_sensex_opt[(df_sensex_opt.type=='PE') & (df_sensex_opt.last_price<=sensex_pe_max_price_limit)].last_price.max())]
+
+    iLog(f"get_options(): Call selected is : {df_sensex_opt_ce.iloc[0,3]}, last_price = {df_sensex_opt_ce.iloc[0,1]}")
+    iLog(f"get_options(): Put  selected is : {df_sensex_opt_pe.iloc[0,3]}, last_price = {df_sensex_opt_pe.iloc[0,1]}")
+
+
+    # CE
+    instrument_token = str(df_sensex_opt_ce.iloc[0,0])
+    dict_nifty_ce["last_price"] = kite.ltp(instrument_token)[instrument_token]['last_price']
+    dict_nifty_ce["tradingsymbol"] = df_sensex_opt_ce.iloc[0,3]
+
+    # PE
+    instrument_token = str(df_sensex_opt_pe.iloc[0,0])
+    dict_nifty_pe["last_price"] = kite.ltp(instrument_token)[instrument_token]['last_price']
+    dict_nifty_pe["tradingsymbol"] = df_sensex_opt_pe.iloc[0,3]
+
+
+
 def place_option_orders(kiteuser,flgMeanReversion=False,flgPlaceSelectedOptionOrder=False):
     ''' Place call orders and targets based on pivots/levels if no order exists
     flgMeanReversion is set to True in case of loss in existing position and need to average out.
@@ -626,14 +669,14 @@ def place_BSE_option_orders_fixed(kiteuser):
     place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, dict_nifty_pe["last_price"] - 5.0)
 
     # CE Order 2,3,4
-    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 30.0)
-    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 60.0)
-    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
+    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 50.0)
+    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 100.0)
+    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 150.0)
 
     # PE Order 2,3,4
-    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,30.0)
-    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,60.0)
-    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,90.0)
+    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,50.0)
+    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,100.0)
+    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,150.0)
 
 
 def place_order(kiteuser,tradingsymbol,qty,limit_price=None,transaction_type=None,order_type=None,tag="kite_options_sell"):
@@ -1008,8 +1051,11 @@ strBotToken = cfg.get("tokens", "bot_token")    #Bot include "bot" prefix in the
 iLog(f"====== Starting Algo ({version}) ====== @ {datetime.datetime.now()}",True)
 iLog(f"Logging to file :{LOG_FILE}",True)
 
-nifty_ce_max_price_limit = int(cfg.get("info", "nifty_ce_max_price_limit")) # 51
-nifty_pe_max_price_limit = int(cfg.get("info", "nifty_pe_max_price_limit")) # 51
+nifty_ce_max_price_limit = int(cfg.get("info", "nifty_ce_max_price_limit")) # 15
+nifty_pe_max_price_limit = int(cfg.get("info", "nifty_pe_max_price_limit")) # 15
+
+sensex_ce_max_price_limit = int(cfg.get("info", "sensex_ce_max_price_limit")) # 30
+sensex_pe_max_price_limit = int(cfg.get("info", "sensex_pe_max_price_limit")) # 30
 
 short_strangle_time = int(cfg.get("info", "short_strangle_time"))   # 925
 short_strangle_flag = False
@@ -1205,6 +1251,8 @@ while True:
     try:
         df = pd.DataFrame(kite.instruments("NFO"))
         df_BFO = pd.DataFrame(kite.instruments("BFO")) 
+        # df.to_csv("./log/instruments_nfo.csv",index=False)
+        # df_BFO.to_csv("./log/instruments_bfo.csv",index=False)
         break
     except Exception as ex:
         iLog(f"Exception occurred {ex}. Will wait for 10 seconds before retry.",True)
@@ -1245,9 +1293,8 @@ iLog(f"Nifty ATM : {nifty_atm} sensex_atm : {sensex_atm}")
 
 # Prepare the list of option stikes for entry 
 #--------------------------------------------
-# Get list of CE/PE strikes 1000 pts on either side of the ATM from option chain # & (df.strike%100==0)
-lst_nifty_opt = df[(df.name=='NIFTY') & (df.expiry==curr_expiry_date) & ((df.strike>=nifty_atm-1500) & (df.strike<=nifty_atm+1500)) ].tradingsymbol.apply(lambda x:'NFO:'+x).tolist()
-
+lst_nifty_opt = df[((df.strike>=nifty_atm-1500) & (df.strike<=nifty_atm+1500)) ].tradingsymbol.apply(lambda x:'NFO:'+x).tolist()
+lst_sensex_opt = df_BFO[ ((df_BFO.strike>=sensex_atm-3000) & (df_BFO.strike<=sensex_atm+3000)) ].tradingsymbol.apply(lambda x:'BFO:'+x).tolist()
 
 
 
@@ -1258,6 +1305,9 @@ lst_nifty_opt = df[(df.name=='NIFTY') & (df.expiry==curr_expiry_date) & ((df.str
 #     place_option_orders_fixed(kiteuser)
 
 # strategy1()
+
+# get_options_BSE()
+# get_options_NSE()
 
 # print("Test Complete")
 # sys.exit(0)
