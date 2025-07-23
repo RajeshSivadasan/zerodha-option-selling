@@ -629,28 +629,74 @@ def place_option_orders_CEPE(kiteuser,flgMeanReversion,dict_opt):
 
 def place_NSE_option_orders_fixed(kiteuser):
     '''
-    Dependency on get_options() to get the dict_nifty_ce and dict_nifty_pe; get_options need optimisations
+    Dependency on get_options_NSE() to get the dict_nifty_ce and dict_nifty_pe; get_options need optimisations
     Place fixed orders for CE/PE 
     '''
 
     iLog(f"[{kiteuser['userid']}] place_option_orders_fixed():")    
 
+    df_pos = get_positions(kiteuser)
 
-    # CE Market Order
-    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, round(dict_nifty_ce["last_price"] - 5.0,1))
+    if abs(max(df_pos.quantity))>0:
+        # Existing positions found, place orders for existing positions
 
-    # PE Market Order
-    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, round(dict_nifty_pe["last_price"] - 5.0,1))
+        if dict_nifty_ce["tradingsymbol"] in df_pos.tradingsymbol.values:
+            if float(dict_nifty_ce["last_price"]) <= 20.0 :
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 30.0)
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 60.0)
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
+            
+            elif float(dict_nifty_ce["last_price"]) > 20.0 and float(dict_nifty_ce["last_price"]) <= 40.0:
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 60.0)
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 120.0)
 
-    # CE Order 2,3,4
-    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 30.0)
-    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 60.0)
-    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
+            elif float(dict_nifty_ce["last_price"]) > 40.0 and float(dict_nifty_ce["last_price"]) <= 80.0:
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 120.0)
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 150.0)
+        else:
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 30.0)
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 60.0)
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
 
-    # PE Order 2,3,4
-    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,30.0)
-    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,60.0)
-    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,90.0)
+        if dict_nifty_pe["tradingsymbol"] in df_pos.tradingsymbol.values:
+            if float(dict_nifty_pe["last_price"]) <= 20.0 :
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 30.0)
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 60.0)
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
+            
+            elif float(dict_nifty_pe["last_price"]) > 20.0 and float(dict_nifty_pe["last_price"]) <= 40.0:
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 60.0)
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 120.0)
+                
+            elif float(dict_nifty_pe["last_price"]) > 40.0 and float(dict_nifty_pe["last_price"]) <= 80.0:
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 120.0)
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 150.0)
+        else:
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 30.0)
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 60.0)
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
+
+    else:    
+
+        # CE Market Order
+        place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, round(dict_nifty_ce["last_price"] - 5.0,1))
+
+        # PE Market Order
+        place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, round(dict_nifty_pe["last_price"] - 5.0,1))
+
+        # CE Order 2,3,4
+        place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 30.0)
+        place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 60.0)
+        place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
+
+        # PE Order 2,3,4
+        place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,30.0)
+        place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,60.0)
+        place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,90.0)
 
 
 def place_BSE_option_orders_fixed(kiteuser):
@@ -742,7 +788,7 @@ def process_orders(kiteuser,flg_place_orders=False):
     # iLog(f"df_pos={df_pos}")
     
     
-    pos = min(df_pos.quantity)
+    pos = max(df_pos.quantity)
     # Check if there are no open positions
     if pos == -1:
         # Error already printed in the get_positions() function
@@ -839,7 +885,7 @@ def get_positions(kiteuser):
             # iLog(f"dict_positions=\n{dict_positions}")
             df_pos = pd.DataFrame(dict_positions)[['tradingsymbol', 'exchange', 'instrument_token','quantity','sell_quantity','sell_value','buy_value','last_price','multiplier','average_price']]
 
-            df_pos = df_pos[df_pos.exchange=='NFO']
+            df_pos = df_pos[(df_pos.exchange=='NFO') & (df_pos.tradingsymbol.str.endswith(('CE','PE'),na=False))]
 
             # Get latest ltp
             # df_pos["ltp"]=[val['last_price'] for keys, val in kite.ltp(df_pos.instrument_token).items()]
@@ -893,17 +939,12 @@ def strategy1():
     elif dow == 2:  # Tuesday
         pass
     
-    elif dow == 3:  # Wednesday
-        get_options_NSE()   # Get the latest options as per the settings  
-        
-        for kiteuser in kite_users:
-            # Will need to give strike selection method (price based or ATM based)
-            # process_orders(kiteuser,True)    
-            place_NSE_option_orders_fixed(kiteuser)  # Place fixed orders for CE/PE as per the settings
+    elif dow == 3 or dow == 4 :  # Wednesday / Thursday
+        get_options_NSE()   # Get the latest options as per the settings 
+        for kiteuser in kite_users: 
+            place_NSE_option_orders_fixed(kiteuser)
 
-    elif dow == 4:  # Thursday
-        pass
-
+ 
 
 # Check if we need to set SL for this strategy
 def strategy2(kiteuser):
@@ -1046,6 +1087,8 @@ if log_to_file: sys.stdout = sys.stderr = open(LOG_FILE, "a") # use flush=True p
 
 strChatID = cfg.get("tokens", "chat_id")
 strBotToken = cfg.get("tokens", "bot_token")    #Bot include "bot" prefix in the token
+channel_id = cfg.get("tokens", "channel_id")
+
 
 # Kept the below line here as telegram bot token is read from the .ini file in the above line 
 iLog(f"====== Starting Algo ({version}) ====== @ {datetime.datetime.now()}",True)
@@ -1196,22 +1239,6 @@ if len(kite_users)<1:
     sys.exit(0)
 
 
-# sys.exit(0)
-
-# Set kite object to the first user to retrive LTP and other common info; user specific kite info needs to be accessed by kiteuser[n]["kite_object"] 
-# kite = kite_users[0]["kite_object"]
-
-
-# # Get the latest TOTP
-# totp = pyotp.TOTP(totp_key).now()
-# twoFA = f"{int(totp):06d}" if len(totp) <=5 else totp   # Suffix zeros if length of the totp is less than 5 digits
-
-# # Authenticate using kite bypass and get Kite object
-# kite = KiteExt(user_id=user_id, password=password, twofa=twoFA)
-# # iLog(f"totp={twoFA}")
-
-
-
 
 # Get current/next week expiry 
 # ----------------------------
@@ -1243,7 +1270,7 @@ lst_qty_multiplier_reg = eval(cfg.get("info", "qty_multiplier_per_lvls_reg"))[do
 lst_qty_multiplier_mr = eval(cfg.get("info", "qty_multiplier_per_lvls_mr"))[dow]
 
 
-iLog(f"dow={dow} lst_ord_lvl_reg={lst_ord_lvl_reg} lst_ord_lvl_mr={lst_ord_lvl_mr} lst_qty_multiplier_reg={lst_qty_multiplier_reg} lst_qty_multiplier_mr={lst_qty_multiplier_mr}")
+# iLog(f"dow={dow} lst_ord_lvl_reg={lst_ord_lvl_reg} lst_ord_lvl_mr={lst_ord_lvl_mr} lst_qty_multiplier_reg={lst_qty_multiplier_reg} lst_qty_multiplier_mr={lst_qty_multiplier_mr}")
 
 # Will need to add banknifty here later if required
 # Get option instruments for the current and next expiry
@@ -1299,7 +1326,7 @@ lst_sensex_opt = df_BFO[ ((df_BFO.strike>=sensex_atm-3000) & (df_BFO.strike<=sen
 
 
 # Test Area
-# process_orders(kite)
+
 # get_options()
 # for kiteuser in kite_users:
 #     place_option_orders_fixed(kiteuser)
