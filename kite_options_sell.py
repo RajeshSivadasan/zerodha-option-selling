@@ -205,16 +205,20 @@ def Zerodha(user_id, password, totp, api_key, secret, tokpath):
 
 
 # For Logging and send messages to Telegram
-def iLog(strMsg,sendTeleMsg=False):
+def iLog(strMsg,sendTeleMsg=False,publishToChannel=False):
     print(f"{datetime.datetime.now()}|{strMsg}",flush=True)
     if sendTeleMsg :
         try:
             requests.get("https://api.telegram.org/"+strBotToken+"/sendMessage?chat_id="+strChatID+"&text="+strMsg)
         except:
-            strMsg = "Telegram message failed."+strMsg
-            print(f"{datetime.datetime.now()}|{strMsg}",flush=True)
+            iLog("Telegram message failed."+strMsg)
 
-
+    if publishToChannel and channel_id:
+        try:
+            # strLogText = f"[{ORDER_TAG}]{strLogText}"
+            requests.get("https://api.telegram.org/"+strBotToken+"/sendMessage?chat_id="+channel_id+"&text="+strMsg)
+        except:
+            iLog("Telegram channel publish failed."+strMsg)
 
 
 
@@ -637,6 +641,8 @@ def place_NSE_option_orders_fixed(kiteuser):
 
     df_pos = get_positions(kiteuser)
 
+    df_pos =  df_pos[df_pos.tradingsymbol.str.endswith(('CE','PE'),na=False)]
+
     if abs(max(df_pos.quantity))>0:
         # Existing positions found, place orders for existing positions
 
@@ -885,7 +891,7 @@ def get_positions(kiteuser):
             # iLog(f"dict_positions=\n{dict_positions}")
             df_pos = pd.DataFrame(dict_positions)[['tradingsymbol', 'exchange', 'instrument_token','quantity','sell_quantity','sell_value','buy_value','last_price','multiplier','average_price']]
 
-            df_pos = df_pos[(df_pos.exchange=='NFO') & (df_pos.tradingsymbol.str.endswith(('CE','PE'),na=False))]
+            df_pos = df_pos[df_pos.exchange=='NFO']
 
             # Get latest ltp
             # df_pos["ltp"]=[val['last_price'] for keys, val in kite.ltp(df_pos.instrument_token).items()]
@@ -1087,11 +1093,11 @@ if log_to_file: sys.stdout = sys.stderr = open(LOG_FILE, "a") # use flush=True p
 
 strChatID = cfg.get("tokens", "chat_id")
 strBotToken = cfg.get("tokens", "bot_token")    #Bot include "bot" prefix in the token
-channel_id = cfg.get("tokens", "channel_id")
+channel_id = cfg.get("tokens", "channel_id").strip()  
 
 
 # Kept the below line here as telegram bot token is read from the .ini file in the above line 
-iLog(f"====== Starting Algo ({version}) ====== @ {datetime.datetime.now()}",True)
+iLog(f"====== Starting Algo ({version}) ====== @ {datetime.datetime.now()}",True,True)
 iLog(f"Logging to file :{LOG_FILE}",True)
 
 nifty_ce_max_price_limit = int(cfg.get("info", "nifty_ce_max_price_limit")) # 15
@@ -1352,7 +1358,7 @@ while cur_HHMM > 913 and cur_HHMM < 1631:
 
     if stratgy1_entry_time==cur_HHMM:
         stratgy1_entry_time = 0
-        iLog(f"Triggering Strategy1...")
+        iLog(f"Triggering Strategy1...",True,True)
         strategy1()
     
     # EOD profit booking / Squareoff
@@ -1405,4 +1411,10 @@ while cur_HHMM > 913 and cur_HHMM < 1631:
 
     # End of algo activities
 
-iLog(f"====== End of Algo ====== @ {datetime.datetime.now()}",True)
+
+# Print final MTM and Positions for each user
+for kiteuser in kite_users:
+    df_pos = get_positions(kiteuser)
+    iLog(f"[{kiteuser['userid']}] Total MTM = {round(sum(df_pos.mtm),2)} Positions:\n {df_pos[['tradingsymbol', 'quantity', 'mtm']]}",True,True)
+
+iLog(f"====== End of Algo ====== @ {datetime.datetime.now()}",True,True)
