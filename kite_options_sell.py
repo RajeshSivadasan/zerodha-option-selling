@@ -34,60 +34,13 @@
 # Plan Tag based order management
 
 
-version = "1.3.0"
+version = "1.3.1"
 # Kite bypass api video (from TradeViaPython)
 # https://youtu.be/dLtWgpjsWdk?si=cPsQJpd0f1zkE4-N
 
 # Autoupdate latest version from github
 # Script to be scheduled at 9:14 AM IST
 # Can run premarket advance and decline check to find the market sentiment
-#  
-###### STRATEGY / TRADE PLAN #####
-# Trading Style     : Intraday Strangle with premium <=50. Positional if MTM is negative(Use Mean reversion)
-# Trade Timing      : Entry: Morning 10:30 
-# Trading Capital   : Rs 6,60,000 approx to start with
-# Script            : Nifty Options
-# Trading Qty       : Min upto 6 lots
-# Premarket Routine : None
-# Trading Goals     : Short max Nifty OTM Call/Put < 100   
-# Time Frame        : CHeck position every 30 seconds
-
-# Risk Capacity     : <>
-# Order Management  : 
-
-# Check after first 15 mins. If nifty breaks high, positive bias, if breaks low negative bias.
-
-
-# Strategy 0:
-# Instead of Pivot point levels, use (open -  close) to see the % rise or fall and decide bias and 20/30/40/50 pts entry targets
-# So no need for getting historic data and all. 
-
-# Strategy 1 (Neutral Bias/Small Short Bias): Sell Both Call and Put at 11:30 AM of strike around 30 (configurable)  
-# Entry Criteria    : Entry post 10:30 AM to 12;
-# If crossed R3 sell next strike
-# Exit Criteria     : 1% of Margin used (1100 per lot) or 75% at first support   
-
-# Strategy 2 (Short Biased): Sell ATM CE
-# Entry Criteria    : Entry at 11:30 (when usually market has peaked out);
-# If crossed R3 sell next strike
-# Exit Criteria     : 1% of Margin used (1100 per lot) or 75% at first support
-
-
-# Strategy 3 (Long Biased): 
-# Entry (Option 1) :Sell at R2(Base Lot), at R3(Base Lot*1.5) , at R4(Base Lot*2)  
-# Entry (Option 2-Wed,Thu) :Sell at R2(Base Lot), at R2+30(Base Lot) , Sell next Strike at NextStrikPrice=Martek+5 (Base Lot) 
-# , at NextStrikPrice+30(Base Lot), at NextToNextStrikPrice(Market)+5(Base Lot),at NextToNextStrikPrice30(Base Lot)
-# Entry (Option 2-Fri,Mon,Tue) :Sell at R2(Base Lot), at R2+30(Base Lot) , Sell next Strike at NextStrikPrice=Martek+5 (Base Lot) 
-# , at NextStrikPrice+30(Base Lot), at NextToNextStrikPrice(Market)+5(Base Lot),at NextToNextStrikPrice30(Base Lot)
-# or Use Golden Ratio (Fibonacci series) for entry prices
-
-# Exit Criteria    : Book 75% of Qty at 1% of Margin used (Rs 1200 per lot) or 75% at first support if profit is above
-
-
-# Strategy 4 (Far Shorts):
-# Identify far strikes (CE/PE) which expire zero with at least 11+ points 
-# Entry : Trigger this strike only if market moves 0.5% either side. For each 0.5% move  the strike selection further.
-
 
 # pip install kiteconnect pyotp requests pandas
 
@@ -428,7 +381,6 @@ def get_options_BSE():
 
 
     # Check if we can use Dask to parallelize the operations
-    # If no instrument token passed then get default options for both CE and PE
     # Get the CE/PE instrument data(instrument_token,last_price,type,symbol) where last_price is maximum but less than equal to option max price limit (e.g <=200)
     df_sensex_opt_ce = df_sensex_opt[(df_sensex_opt.type=='CE') & (df_sensex_opt.last_price==df_sensex_opt[(df_sensex_opt.type=='CE') & (df_sensex_opt.last_price<=sensex_ce_max_price_limit)].last_price.max())]
     df_sensex_opt_pe = df_sensex_opt[(df_sensex_opt.type=='PE') & (df_sensex_opt.last_price==df_sensex_opt[(df_sensex_opt.type=='PE') & (df_sensex_opt.last_price<=sensex_pe_max_price_limit)].last_price.max())]
@@ -439,13 +391,13 @@ def get_options_BSE():
 
     # CE
     instrument_token = str(df_sensex_opt_ce.iloc[0,0])
-    dict_nifty_ce["last_price"] = kite.ltp(instrument_token)[instrument_token]['last_price']
-    dict_nifty_ce["tradingsymbol"] = df_sensex_opt_ce.iloc[0,3]
+    dict_sensex_ce["last_price"] = kite.ltp(instrument_token)[instrument_token]['last_price']
+    dict_sensex_ce["tradingsymbol"] = df_sensex_opt_ce.iloc[0,3]
 
     # PE
     instrument_token = str(df_sensex_opt_pe.iloc[0,0])
-    dict_nifty_pe["last_price"] = kite.ltp(instrument_token)[instrument_token]['last_price']
-    dict_nifty_pe["tradingsymbol"] = df_sensex_opt_pe.iloc[0,3]
+    dict_sensex_pe["last_price"] = kite.ltp(instrument_token)[instrument_token]['last_price']
+    dict_sensex_pe["tradingsymbol"] = df_sensex_opt_pe.iloc[0,3]
 
 
 
@@ -637,14 +589,14 @@ def place_NSE_option_orders_fixed(kiteuser):
     Place fixed orders for CE/PE 
     '''
 
-    iLog(f"[{kiteuser['userid']}] place_option_orders_fixed():")    
+    iLog(f"[{kiteuser['userid']}] place_NSE_option_orders_fixed():")    
 
-    df_pos = get_positions(kiteuser)
+    df_pos = get_positions(kiteuser,'NFO')
 
-    df_pos =  df_pos[df_pos.tradingsymbol.str.endswith(('CE','PE'),na=False)]
 
-    if abs(max(df_pos.quantity))>0:
+    if abs(max(df_pos.quantity))>1:
         # Existing positions found, place orders for existing positions
+        df_pos =  df_pos[df_pos.tradingsymbol.str.endswith(('CE','PE'),na=False)]
 
         if dict_nifty_ce["tradingsymbol"] in df_pos.tradingsymbol.values:
             if float(dict_nifty_ce["last_price"]) <= 20.0 :
@@ -707,28 +659,77 @@ def place_NSE_option_orders_fixed(kiteuser):
 
 def place_BSE_option_orders_fixed(kiteuser):
     '''
-    Dependency on get_options() to get the dict_nifty_ce and dict_nifty_pe; get_options need optimisations
+    Dependency on get_options_BSE() to get the dict_sensex_ce and dict_sensex_pe; get_options need optimisations
     Place fixed orders for CE/PE 
     '''
 
-    iLog(f"[{kiteuser['userid']}] place_BSE_option_orders_fixed():")    
+    iLog(f"[{kiteuser['userid']}] place_NSE_option_orders_fixed():")    
+
+    df_pos = get_positions(kiteuser,'BFO')
 
 
-    # CE Market Order
-    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, dict_nifty_ce["last_price"] - 5.0)
+    if abs(max(df_pos.quantity))>1:
+        # Existing positions found, place orders for existing positions
 
-    # PE Market Order
-    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, dict_nifty_pe["last_price"] - 5.0)
+        df_pos =  df_pos[df_pos.tradingsymbol.str.endswith(('CE','PE'),na=False)]
 
-    # CE Order 2,3,4
-    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 50.0)
-    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 100.0)
-    place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 150.0)
+        if dict_sensex_ce["tradingsymbol"] in df_pos.tradingsymbol.values:
+            if float(dict_sensex_ce["last_price"]) <= 50.0 :
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0)
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0)
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0)
+            
+            elif float(dict_sensex_ce["last_price"]) > 50.0 and float(dict_sensex_ce["last_price"]) <= 100.0:
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0)
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0)
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 250.0)
 
-    # PE Order 2,3,4
-    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,50.0)
-    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,100.0)
-    place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,150.0)
+            elif float(dict_sensex_ce["last_price"]) > 100.0 and float(dict_sensex_ce["last_price"]) <= 150.0:
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0)
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 250.0)
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 300.0)
+        else:
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 50.0)
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0)
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0)
+
+        if dict_sensex_pe["tradingsymbol"] in df_pos.tradingsymbol.values:
+            if float(dict_sensex_pe["last_price"]) <= 50.0 :
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0)
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0)
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0)
+            
+            elif float(dict_sensex_pe["last_price"]) > 50.0 and float(dict_sensex_pe["last_price"]) <= 100.0:
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0)
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0)
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 250.0)
+                
+            elif float(dict_sensex_pe["last_price"]) > 100.0 and float(dict_sensex_pe["last_price"]) <= 150.0:
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0)
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 250.0)
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 300.0)
+        else:
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 50.0)
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0)
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0)
+
+    else:    
+
+        # CE Market Order
+        place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, round(dict_sensex_ce["last_price"] - 10.0,1))
+
+        # PE Market Order
+        place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, round(dict_sensex_pe["last_price"] - 10.0,1))
+
+        # CE Order 2,3,4
+        place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0)
+        place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0)
+        place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0)
+
+        # PE Order 2,3,4
+        place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty,100.0)
+        place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty,150.0)
+        place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty,200.0)
 
 
 def place_order(kiteuser,tradingsymbol,qty,limit_price=None,transaction_type=None,order_type=None,tag="kite_options_sell"):
@@ -876,7 +877,7 @@ def process_orders(kiteuser,flg_place_orders=False):
                             iLog(strMsgSuffix + " Mean reversion orders will NOT be placed as flg_place_orders is false")
     
 
-def get_positions(kiteuser):
+def get_positions(kiteuser,exchange='BOTH'):
     '''Returns dataframe columns (m2m,quantity) with net values for Options only'''
     iLog(f"[{kiteuser['userid']}] get_positions():")
 
@@ -891,7 +892,8 @@ def get_positions(kiteuser):
             # iLog(f"dict_positions=\n{dict_positions}")
             df_pos = pd.DataFrame(dict_positions)[['tradingsymbol', 'exchange', 'instrument_token','quantity','sell_quantity','sell_value','buy_value','last_price','multiplier','average_price']]
 
-            df_pos = df_pos[df_pos.exchange=='NFO']
+            if exchange != 'BOTH':
+                df_pos = df_pos[df_pos.exchange==exchange]
 
             # Get latest ltp
             # df_pos["ltp"]=[val['last_price'] for keys, val in kite.ltp(df_pos.instrument_token).items()]
@@ -928,29 +930,22 @@ def get_positions(kiteuser):
 
 def strategy1():
     '''
-    Place nifty CE and PE fixed orders on wed morning
+    Place CE and PE fixed orders
     '''
     
     iLog(f"strategy1():")
     
     # Check day of week
-    if dow == 1:  # Monday
-        get_options()   # Get the latest options as per the settings  
-        
+    if dow == 1 or dow == 2:  # Monday, Tuesday
+        get_options_BSE()   # Get the latest Sensex options as per the settings  
         for kiteuser in kite_users:
-            # Will need to give strike selection method (price based or ATM based)
-            # process_orders(kiteuser,True)    
-            place_BSE_option_orders_fixed(kiteuser)  # Place fixed orders for CE/PE as per the settings
-    
-    elif dow == 2:  # Tuesday
-        pass
+            place_BSE_option_orders_fixed(kiteuser) 
     
     elif dow == 3 or dow == 4 :  # Wednesday / Thursday
         get_options_NSE()   # Get the latest options as per the settings 
         for kiteuser in kite_users: 
             place_NSE_option_orders_fixed(kiteuser)
 
- 
 
 # Check if we need to set SL for this strategy
 def strategy2(kiteuser):
@@ -1120,7 +1115,11 @@ next_week_expiry_days = list(map(int,cfg.get("info", "next_week_expiry_days").sp
 
 # Get base lot and qty 
 nifty_opt_base_lot = int(cfg.get("info", "nifty_opt_base_lot"))         # 1
-nifty_opt_per_lot_qty = int(cfg.get("info", "nifty_opt_per_lot_qty"))   # 50
+nifty_opt_per_lot_qty = int(cfg.get("info", "nifty_opt_per_lot_qty"))   # 75
+
+sensex_opt_base_lot = int(cfg.get("info", "sensex_opt_base_lot"))
+sensex_opt_per_lot_qty = int(cfg.get("info", "sensex_opt_per_lot_qty"))
+
 
 nifty_avg_margin_req_per_lot = int(cfg.get("info", "nifty_avg_margin_req_per_lot"))
 
@@ -1313,6 +1312,9 @@ dict_nifty_ce = {}
 dict_nifty_pe = {}
 dict_nifty_opt_selected = {} # for storing the details of existing older option position which needs reversion
 
+dict_sensex_ce = {}
+dict_sensex_pe = {}
+dict_sensex_opt_selected = {} # for storing the details of existing older option position which needs reversion
 
 
 # Get ATM
@@ -1333,14 +1335,11 @@ lst_sensex_opt = df_BFO[ ((df_BFO.strike>=sensex_atm-3000) & (df_BFO.strike<=sen
 
 # Test Area
 
-# get_options()
+# get_options_NSE()   # Get the latest Sensex options as per the settings  
 # for kiteuser in kite_users:
-#     place_option_orders_fixed(kiteuser)
+#     place_NSE_option_orders_fixed(kiteuser) 
 
 # strategy1()
-
-# get_options_BSE()
-# get_options_NSE()
 
 # print("Test Complete")
 # sys.exit(0)
@@ -1352,7 +1351,7 @@ nxt_5min = time.time()
 nxt_2min = time.time() 
 
 # Process as per start and end of market timing
-while cur_HHMM > 913 and cur_HHMM < 1631:
+while cur_HHMM > 913 and cur_HHMM < 1531:
 
     t1 = time.time()
 
