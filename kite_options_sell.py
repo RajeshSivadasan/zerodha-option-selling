@@ -402,7 +402,6 @@ def get_options_BSE():
     dict_sensex_pe["tradingsymbol"] = df_sensex_opt_pe.iloc[0,3]
 
 
-
 def place_option_orders(kiteuser,flgMeanReversion=False,flgPlaceSelectedOptionOrder=False):
     ''' Place call orders and targets based on pivots/levels if no order exists
     flgMeanReversion is set to True in case of loss in existing position and need to average out.
@@ -940,13 +939,32 @@ def strategy1():
     # Check day of week
     if dow == 1 or dow == 2:  # Monday, Tuesday
         get_options_BSE()   # Get the latest Sensex options as per the settings  
-        for kiteuser in kite_users:
-            place_BSE_option_orders_fixed(kiteuser) 
-    
+        # for kiteuser in kite_users:
+        #     place_BSE_option_orders_fixed(kiteuser) 
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(kite_users)) as executor:
+            futures = {executor.submit(place_BSE_option_orders_fixed, kiteuser): kiteuser for kiteuser in kite_users}
+            for future in concurrent.futures.as_completed(futures):
+                kiteuser = futures[future]
+                try:
+                    future.result()
+                except Exception as e:
+                    iLog(f"[{kiteuser['userid']}] Exception '{e}' occured while processing place_BSE_option_orders_fixed(kiteuser) in parallel.", True)
+
+
+
     elif dow == 3 or dow == 4 :  # Wednesday / Thursday
         get_options_NSE()   # Get the latest options as per the settings 
-        for kiteuser in kite_users: 
-            place_NSE_option_orders_fixed(kiteuser)
+        # for kiteuser in kite_users: 
+        #     place_NSE_option_orders_fixed(kiteuser)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(kite_users)) as executor:
+            futures = {executor.submit(place_NSE_option_orders_fixed, kiteuser): kiteuser for kiteuser in kite_users}
+            for future in concurrent.futures.as_completed(futures):
+                kiteuser = futures[future]
+                try:
+                    future.result()
+                except Exception as e:
+                    iLog(f"[{kiteuser['userid']}] Exception '{e}' occured while processing place_NSE_option_orders_fixed(kiteuser) in parallel.", True)
+
 
 
 # Check if we need to set SL for this strategy
