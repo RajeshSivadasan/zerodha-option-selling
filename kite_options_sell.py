@@ -32,7 +32,7 @@
 # Plan Tag based order management
 
 
-version = "1.3.3"
+version = "1.3.4"
 # Kite bypass api video (from TradeViaPython)
 # https://youtu.be/dLtWgpjsWdk?si=cPsQJpd0f1zkE4-N
 
@@ -912,7 +912,7 @@ def get_positions(kiteuser,exchange='BOTH'):
                 # df_pos["mtm"] = ( df_pos.sell_value - df_pos.buy_value ) + (df_pos.quantity * df_pos.last_price * df_pos.multiplier)
                 df_pos["mtm"] = ( df_pos.sell_value - df_pos.buy_value ) + (df_pos.quantity * df_pos.ltp * df_pos.multiplier)
                 df_pos["profit_target_amt"] = (abs(df_pos.sell_quantity/50)*nifty_avg_margin_req_per_lot) * (kiteuser["profit_target_perc"]/100)    # used sell_quantity insted of quantity to captue net profit target
-                return df_pos[['tradingsymbol','instrument_token','quantity','mtm','profit_target_amt','ltp','expiry']]
+                return df_pos[['tradingsymbol','instrument_token','quantity','mtm','profit_target_amt','ltp','expiry','exchange']]
 
 
             # for pos in dict_positions:
@@ -992,12 +992,12 @@ def book_profit_PERC(kiteuser,df_pos):
             qty = abs(opt.quantity) * (kiteuser["profit_booking_qty_perc"]/100)
             qty = qty - (qty % -75)
             qty = int(qty * (-1 if opt.quantity>0 else 1))   # Get reverse sign to b
-            iLog(strMsgSuffix + f" tradingsymbol={tradingsymbol} opt.quantity={opt.quantity} qty={qty} opt.ltp={opt.ltp} carry_till_expiry_price={carry_till_expiry_price} opt.mtm={opt.mtm} opt.profit_target_amt={opt.profit_target_amt}")
+            iLog(strMsgSuffix + f" exchange={opt.exchange} tradingsymbol={tradingsymbol} opt.quantity={opt.quantity} qty={qty} opt.ltp={opt.ltp} carry_till_expiry_price={carry_till_expiry_price} opt.mtm={opt.mtm} opt.profit_target_amt={opt.profit_target_amt}")
             # Need to provision for partial profit booking
             if (tradingsymbol[-2:] in ('CE','PE')) and (opt.quantity < 0) and (opt.mtm > opt.profit_target_amt)  and (opt.ltp > carry_till_expiry_price) :
                 # iLog(strMsgSuffix + f" Placing Squareoff order for tradingsymbol={tradingsymbol}, qty={qty}",True)
                 # if place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET):
-                if place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty,limit_price=round(opt.ltp+5),transaction_type=kite.TRANSACTION_TYPE_BUY,tag="PartialBooking"):
+                if place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty,limit_price=round(opt.ltp+5),transaction_type=kite.TRANSACTION_TYPE_BUY,tag="PartialBooking",exchange=opt.exchange):
                     iLog(strMsgSuffix +"partial_profit_booked_flg set to 1 ")
                     kiteuser["partial_profit_booked_flg"] = 1
 
@@ -1019,7 +1019,7 @@ def book_profit_eod(kiteuser):
             if abs(opt.quantity)>0:
                 tradingsymbol = opt.tradingsymbol
                 qty = int(opt.quantity)
-                iLog(strMsgSuffix + f" tradingsymbol={tradingsymbol} qty={qty} opt.ltp={opt.ltp} expiry={opt.expiry} carry_till_expiry_price={carry_till_expiry_price} opt.mtm={opt.mtm} opt.profit_target_amt={opt.profit_target_amt}")
+                iLog(strMsgSuffix + f" exchange={opt.exchange} tradingsymbol={tradingsymbol} qty={qty} opt.ltp={opt.ltp} expiry={opt.expiry} carry_till_expiry_price={carry_till_expiry_price} opt.mtm={opt.mtm} opt.profit_target_amt={opt.profit_target_amt}")
                 # Check if expiry is today then force squareoff
                 
                 if opt.expiry == datetime.date.today(): # Replaced exipry_date with todays date
@@ -1038,7 +1038,7 @@ def book_profit_eod(kiteuser):
                     # place_order(kiteuser, tradingsymbol=tradingsymbol, qty=qty, transaction_type=transaction_type, order_type=kite.ORDER_TYPE_MARKET)
                     # Changed to limit order
                     # Need to check and update or cancel existing order
-                    place_order(kiteuser, tradingsymbol=tradingsymbol, qty=qty, limit_price=limit_price, transaction_type=transaction_type)
+                    place_order(kiteuser, tradingsymbol=tradingsymbol, qty=qty, limit_price=limit_price, transaction_type=transaction_type,tag="EODSquareoff",exchange=opt.exchange)
                 
                 else:
                     # Squareoff only if MTM > profit target
