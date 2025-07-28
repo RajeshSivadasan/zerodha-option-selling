@@ -32,7 +32,7 @@
 # Plan Tag based order management
 
 
-version = "1.3.2"
+version = "1.3.3"
 # Kite bypass api video (from TradeViaPython)
 # https://youtu.be/dLtWgpjsWdk?si=cPsQJpd0f1zkE4-N
 
@@ -665,7 +665,7 @@ def place_BSE_option_orders_fixed(kiteuser):
     Place fixed orders for CE/PE 
     '''
 
-    iLog(f"[{kiteuser['userid']}] place_NSE_option_orders_fixed():")
+    iLog(f"[{kiteuser['userid']}] place_BSE_option_orders_fixed():")
     sensex_opt_base_lot = kiteuser['sensex_opt_base_lot']    
 
     df_pos = get_positions(kiteuser,'BFO')
@@ -678,64 +678,64 @@ def place_BSE_option_orders_fixed(kiteuser):
 
         if dict_sensex_ce["tradingsymbol"] in df_pos.tradingsymbol.values:
             if float(dict_sensex_ce["last_price"]) <= 50.0 :
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0)
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0)
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0)
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0,exchange='BFO')
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0,exchange='BFO')
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0,exchange='BFO')
             
             elif float(dict_sensex_ce["last_price"]) > 50.0 and float(dict_sensex_ce["last_price"]) <= 100.0:
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0)
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0)
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 250.0)
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0,exchange='BFO')
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0,exchange='BFO')
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 250.0,exchange='BFO')
 
             elif float(dict_sensex_ce["last_price"]) > 100.0 and float(dict_sensex_ce["last_price"]) <= 150.0:
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0)
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 250.0)
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 300.0)
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0,exchange='BFO')
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 250.0,exchange='BFO')
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 300.0,exchange='BFO')
         else:
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 50.0)
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0)
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0)
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 50.0,exchange='BFO')
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0,exchange='BFO')
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0,exchange='BFO')
 
         if dict_sensex_pe["tradingsymbol"] in df_pos.tradingsymbol.values:
             if float(dict_sensex_pe["last_price"]) <= 50.0 :
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0)
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0)
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0)
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0,exchange='BFO')
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0,exchange='BFO')
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0,exchange='BFO')
             
             elif float(dict_sensex_pe["last_price"]) > 50.0 and float(dict_sensex_pe["last_price"]) <= 100.0:
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0)
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0)
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 250.0)
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0,exchange='BFO')
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0,exchange='BFO')
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 250.0,exchange='BFO')
                 
             elif float(dict_sensex_pe["last_price"]) > 100.0 and float(dict_sensex_pe["last_price"]) <= 150.0:
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0)
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 250.0)
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 300.0)
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0,exchange='BFO')
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 250.0,exchange='BFO')
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 300.0,exchange='BFO')
         else:
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 50.0)
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0)
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0)
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 50.0,exchange='BFO')
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0,exchange='BFO')
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0,exchange='BFO')
 
     else:    
 
         # CE Market Order
-        place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, round(dict_sensex_ce["last_price"] - 10.0,1))
+        place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, round(dict_sensex_ce["last_price"] - 10.0,1),exchange='BFO')
 
         # PE Market Order
-        place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, round(dict_sensex_pe["last_price"] - 10.0,1))
+        place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, round(dict_sensex_pe["last_price"] - 10.0,1),exchange='BFO')
 
         # CE Order 2,3,4
-        place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0)
-        place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0)
-        place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0)
+        place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0,exchange='BFO')
+        place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0,exchange='BFO')
+        place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0,exchange='BFO')
 
         # PE Order 2,3,4
-        place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty,100.0)
-        place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty,150.0)
-        place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty,200.0)
+        place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty,100.0,exchange='BFO')
+        place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty,150.0,exchange='BFO')
+        place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty,200.0,exchange='BFO')
 
 
-def place_order(kiteuser,tradingsymbol,qty,limit_price=None,transaction_type=None,order_type=None,tag="kite_options_sell"):
+def place_order(kiteuser,tradingsymbol,qty,limit_price=None,transaction_type=None,order_type=None,tag="kite_options_sell",exchange='NFO'):
     
 
     kite_obj = kiteuser["kite_object"]
@@ -756,9 +756,10 @@ def place_order(kiteuser,tradingsymbol,qty,limit_price=None,transaction_type=Non
         iLog(f"[{kiteuser['userid']}] place_order(): Placing order : tradingsymbol={tradingsymbol}, qty={qty}, limit_price={limit_price}, transaction_type={transaction_type}",True)
     
     # If not virtual trade, execute order on exchange
+    # kite_obj.EXCHANGE_NFO
     try:
         order_id = kiteuser["kite_object"].place_order(variety=kite_obj.VARIETY_REGULAR,
-                            exchange=kite_obj.EXCHANGE_NFO,
+                            exchange=exchange,
                             tradingsymbol=tradingsymbol,
                             transaction_type=transaction_type,
                             quantity=qty,
@@ -896,17 +897,18 @@ def get_positions(kiteuser,exchange='BOTH'):
             if exchange != 'BOTH':
                 df_pos = df_pos[df_pos.exchange==exchange]
 
-            # Get latest ltp
-            # df_pos["ltp"]=[val['last_price'] for keys, val in kite.ltp(df_pos.instrument_token).items()]
-            # dict_ltp = {value['instrument_token']:value['last_price'] for key, value in kite.ltp(df_pos.instrument_token).items()}
-            df_pos["ltp"]=df_pos.instrument_token.map({value['instrument_token']:value['last_price'] for key, value in kite.ltp(df_pos.instrument_token).items()})
 
-            df_pos["expiry"] = df_pos.instrument_token.map(dict_token_expiry)
 
             # Get only the options and not equity or other instruments
             if df_pos.empty:
                 return pd.DataFrame([[0]],columns=['quantity'])
             else:
+                # Get latest ltp
+                # df_pos["ltp"]=[val['last_price'] for keys, val in kite.ltp(df_pos.instrument_token).items()]
+                # dict_ltp = {value['instrument_token']:value['last_price'] for key, value in kite.ltp(df_pos.instrument_token).items()}
+                df_pos["ltp"]=df_pos.instrument_token.map({value['instrument_token']:value['last_price'] for key, value in kite.ltp(df_pos.instrument_token).items()})
+
+                df_pos["expiry"] = df_pos.instrument_token.map(dict_token_expiry)
                 # df_pos["mtm"] = ( df_pos.sell_value - df_pos.buy_value ) + (df_pos.quantity * df_pos.last_price * df_pos.multiplier)
                 df_pos["mtm"] = ( df_pos.sell_value - df_pos.buy_value ) + (df_pos.quantity * df_pos.ltp * df_pos.multiplier)
                 df_pos["profit_target_amt"] = (abs(df_pos.sell_quantity/50)*nifty_avg_margin_req_per_lot) * (kiteuser["profit_target_perc"]/100)    # used sell_quantity insted of quantity to captue net profit target
@@ -1224,7 +1226,7 @@ for section in cfg.sections():
         user['nifty_opt_base_lot'] = int(cfg.get(section, "nifty_opt_base_lot"))
         user['bank_opt_base_lot'] = int(cfg.get(section, "bank_opt_base_lot"))
         user['auto_profit_booking'] = int(cfg.get(section, "auto_profit_booking"))
-        
+        user['sensex_opt_base_lot'] = int(cfg.get(section, "sensex_opt_base_lot"))
 
 
 
@@ -1307,7 +1309,7 @@ while True:
         df = pd.DataFrame(kite.instruments("NFO"))
         df_BFO = pd.DataFrame(kite.instruments("BFO")) 
         # df.to_csv("./log/instruments_nfo.csv",index=False)
-        # df_BFO.to_csv("./log/instruments_bfo.csv",index=False)
+        # df_BFO.to_csv("./log/instruments_bfo2.csv",index=False)
         break
     except Exception as ex:
         iLog(f"Exception occurred {ex}. Will wait for 10 seconds before retry.",True)
@@ -1358,11 +1360,16 @@ lst_sensex_opt = df_BFO[ ((df_BFO.strike>=sensex_atm-3000) & (df_BFO.strike<=sen
 
 # Test Area
 
+
 # get_options_NSE()   # Get the latest Sensex options as per the settings  
 # for kiteuser in kite_users:
 #     place_NSE_option_orders_fixed(kiteuser) 
 
-# strategy1()
+# get_options_BSE()   # Get the latest Sensex options as per the settings  
+# for kiteuser in kite_users:
+#     place_BSE_option_orders_fixed(kiteuser) 
+
+# # strategy1()
 
 # print("Test Complete")
 # sys.exit(0)
