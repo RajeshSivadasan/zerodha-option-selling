@@ -7,32 +7,7 @@
 # Code to delete log files older than 30 days
 # Autoupdate latest version from github using wget and rawurl of this script from github 
 
-# 1.0.0 Base Version, Fixed AttributeError: 'dict' object has no attribute 'margins'. Fixed potential plac_order error due to incorrect usage of kite object
-# 1.0.1 Fixed KeyError: 'partial_profit_booked_flg' at line 796, Updated process_orders() to telegram mtm for each user. Check if processing is delayed and is needed 
-# 1.0.2 Added code to send log. Changed mtm printing frequency
-# 1.0.3 Profit booking not happening. Fixed float qty issue in book_profit(); print mtm at the end; changed process_orders();
-# 1.0.4 Added profit_booking_type (PERCENT|PIVOT). Update .ini file user sections with profit_booking_type = PERCENT | PIVOT   
-# 1.0.5 used sell_quantity instead of quantity in get_positions() to calculate profit_target_amount as new positions were getting squared off due to profit target already being achieved
-# 1.0.6 Exception handling for processing as the algo gets aborted totally; print position and MTM each 5mins
-# 1.0.7 Added nifty_opt_base_lot and bank_opt_base_lot parameters to the user. Implementation pending
-# 1.0.8 Handled Unknown Content-Type issue using retry option
-# 1.0.9 Fixed error in exception handling at line 256 
-# 1.1.0 Wait for 180 seconds to print into logs
-# 1.1.1 Error: Market orders are blocked from trading due to illiquidity. book_profit_PERC() and book_profit_eod() updated with limit orders
-# 1.1.2 auto_profit_booking implemented to override automatic profit booking and give more control to manually manage positions
-# 1.1.3 book_profit_eod() not working on expiry. Modified the code to fix the issue.
-# 1.1.4 book_profit_eod() bug fix in if condition
-# 1.1.5 book_profit_eod() bug fix in date condition
-# 1.1.6 Changes for debugging blank list of nifty strikes
-# 1.1.7 Implemented autosquareoff for loss percentage as well. Learnt very hard way. Option prices moved 11 times against the position
-# 1.1.8 Use Kiteuser as the root user which has the API Key and Secret
-# 1.1.9 Fix the bug of booking loss for future positions as well. Condition for options only added. 
-# 1.2.0 Changed option strike filter to 1500 away from ATM both sides to prevent error during extreme option prices
-# 1.2.1 Fixed tradingsymbol access error in profit booking code
-# Plan Tag based order management
-
-
-version = "1.3.4"
+version = "1.3.5"
 # Kite bypass api video (from TradeViaPython)
 # https://youtu.be/dLtWgpjsWdk?si=cPsQJpd0f1zkE4-N
 
@@ -595,8 +570,13 @@ def place_NSE_option_orders_fixed(kiteuser):
 
     df_pos = get_positions(kiteuser,'NFO')
 
+    # Filter call options: tradingsymbol starts with 'NIFTY' and ends with 'CE'
+    call_options_count = df_pos[df_pos['tradingsymbol'].str.startswith("NIFTY") & df_pos['tradingsymbol'].str.endswith("CE")].shape[0]
 
-    if abs(max(df_pos.quantity))>1:
+    # Filter put options: tradingsymbol starts with 'NIFTY' and ends with 'PE'
+    put_options_count = df_pos[df_pos['tradingsymbol'].str.startswith("NIFTY") & df_pos['tradingsymbol'].str.endswith("PE")].shape[0]
+
+    if call_options_count+put_options_count > 0:
         # Existing positions found, place orders for existing positions
         df_pos =  df_pos[df_pos.tradingsymbol.str.endswith(('CE','PE'),na=False)]
 
@@ -616,6 +596,7 @@ def place_NSE_option_orders_fixed(kiteuser):
                 place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 120.0)
                 place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 150.0)
         else:
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 0.0)  # round(dict_nifty_ce["last_price"] - 5.0,1)
                 place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 30.0)
                 place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 60.0)
                 place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
@@ -636,6 +617,7 @@ def place_NSE_option_orders_fixed(kiteuser):
                 place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 120.0)
                 place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 150.0)
         else:
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 0.0)  # round(dict_nifty_pe["last_price"] - 5.0,1)
                 place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 30.0)
                 place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 60.0)
                 place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
@@ -643,10 +625,10 @@ def place_NSE_option_orders_fixed(kiteuser):
     else:    
 
         # CE Market Order
-        place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, round(dict_nifty_ce["last_price"] - 5.0,1))
+        place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 0.0)  # round(dict_nifty_ce["last_price"] - 5.0,1)
 
         # PE Market Order
-        place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, round(dict_nifty_pe["last_price"] - 5.0,1))
+        place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 0.0)  # round(dict_nifty_pe["last_price"] - 5.0,1)
 
         # CE Order 2,3,4
         place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 30.0)
@@ -670,8 +652,14 @@ def place_BSE_option_orders_fixed(kiteuser):
 
     df_pos = get_positions(kiteuser,'BFO')
 
+    # Filter call options: tradingsymbol starts with 'NIFTY' and ends with 'CE'
+    call_options_count = df_pos[df_pos['tradingsymbol'].str.startswith("SENSEX") & df_pos['tradingsymbol'].str.endswith("CE")].shape[0]
 
-    if abs(max(df_pos.quantity))>1:
+    # Filter put options: tradingsymbol starts with 'NIFTY' and ends with 'PE'
+    put_options_count = df_pos[df_pos['tradingsymbol'].str.startswith("SENSEX") & df_pos['tradingsymbol'].str.endswith("PE")].shape[0]
+
+
+    if call_options_count+put_options_count > 0:
         # Existing positions found, place orders for existing positions
 
         df_pos =  df_pos[df_pos.tradingsymbol.str.endswith(('CE','PE'),na=False)]
@@ -719,10 +707,10 @@ def place_BSE_option_orders_fixed(kiteuser):
     else:    
 
         # CE Market Order
-        place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, round(dict_sensex_ce["last_price"] - 10.0,1),exchange='BFO')
+        place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 0.0,exchange='BFO')
 
         # PE Market Order
-        place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, round(dict_sensex_pe["last_price"] - 10.0,1),exchange='BFO')
+        place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 0.0,exchange='BFO')
 
         # CE Order 2,3,4
         place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0,exchange='BFO')
@@ -735,17 +723,13 @@ def place_BSE_option_orders_fixed(kiteuser):
         place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty,200.0,exchange='BFO')
 
 
-def place_order(kiteuser,tradingsymbol,qty,limit_price=None,transaction_type=None,order_type=None,tag="kite_options_sell",exchange='NFO'):
+def place_order(kiteuser,tradingsymbol,qty,limit_price=None,transaction_type="SELL",order_type="LIMIT",tag="kite_options_sell",exchange="NFO"):
     
 
     kite_obj = kiteuser["kite_object"]
 
-    # 
-    if transaction_type is None:
-        transaction_type = kite_obj.TRANSACTION_TYPE_SELL
 
-    if order_type is None:
-        order_type = kite_obj.ORDER_TYPE_LIMIT
+    if limit_price == 0 : order_type = "MARKET"
 
 
     # Place orders for all users
@@ -763,10 +747,10 @@ def place_order(kiteuser,tradingsymbol,qty,limit_price=None,transaction_type=Non
                             tradingsymbol=tradingsymbol,
                             transaction_type=transaction_type,
                             quantity=qty,
-                            product=kite_obj.PRODUCT_NRML,
+                            product="NRML",
                             order_type=order_type,
                             price=limit_price,
-                            validity=kite_obj.VALIDITY_DAY,
+                            validity="DAY",
                             tag=tag )
 
         iLog(f"[{kiteuser['userid']}] place_order(): Order Placed. order_id={order_id}",True)
@@ -1400,7 +1384,7 @@ while cur_HHMM > 913 and cur_HHMM < 1531:
             book_profit_eod_processed = 1
         eod_process_time = 0
 
-    else:
+    elif cur_HHMM > 916:
         # Run process_orders in parallel for all kiteusers
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(kite_users)) as executor:
             futures = {executor.submit(process_orders, kiteuser): kiteuser for kiteuser in kite_users}
