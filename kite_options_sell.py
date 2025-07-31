@@ -4,10 +4,9 @@
 # process_orders() need restructuring
 # If dow is 5,1,2 and MTM is below -1% then no order to be placed that day and wait for next day
 # carry_till_expiry_price ? Do we really need this setting? What is the tradeoff?
-# Code to delete log files older than 30 days
 # Autoupdate latest version from github using wget and rawurl of this script from github 
 
-version = "1.3.5"
+version = "1.3.6"
 # Kite bypass api video (from TradeViaPython)
 # https://youtu.be/dLtWgpjsWdk?si=cPsQJpd0f1zkE4-N
 
@@ -908,11 +907,11 @@ def get_positions(kiteuser,exchange='BOTH'):
             # return pd.DataFrame([[mtm,qty]],columns = ['m2m', 'quantity'])
         else:
             # Return zero as quantity if there are no position
-            return pd.DataFrame([[0,0]],columns=['quantity','mtm']) 
+            return pd.DataFrame([[0,0,'NoPositionFound']],columns=['quantity','mtm','tradingsymbol']) 
 
     except Exception as ex:
         iLog(f"[{kiteuser['userid']}] Unable to fetch positions dataframe. Error : {ex}")
-        return pd.DataFrame([[-1,0]],columns=['quantity','mtm'])   # Return empty dataframe
+        return pd.DataFrame([[-1,0,'Error']],columns=['quantity','mtm','tradingsymbol'])   # Return empty dataframe
 
 
 def strategy1():
@@ -1061,6 +1060,31 @@ def exit_algo():
     sys.stdout = sys.__stdout__
     sys.stderr = sys.__stderr__
     sys.exit(0)
+
+
+def delete_old_log_files(log_dir="./log", days=30):
+    """
+    Deletes log files older than 'days' days from the specified log_dir.
+    """
+    now = time.time()
+    cutoff = now - (days * 86400)
+    deleted = 0
+
+    if not os.path.exists(log_dir):
+        return
+
+    for filename in os.listdir(log_dir):
+        file_path = os.path.join(log_dir, filename)
+        if os.path.isfile(file_path):
+            if filename.endswith('.log'):
+                if os.path.getmtime(file_path) < cutoff:
+                    try:
+                        os.remove(file_path)
+                        deleted += 1
+                    except Exception as e:
+                        iLog(f"Could not delete {file_path}: {e}")
+
+    iLog(f"Deleted {deleted} log files older than {days} days from {log_dir}")
 
 
 
@@ -1355,6 +1379,7 @@ lst_sensex_opt = df_BFO[ ((df_BFO.strike>=sensex_atm-3000) & (df_BFO.strike<=sen
 
 # # strategy1()
 
+
 # print("Test Complete")
 # sys.exit(0)
 
@@ -1438,6 +1463,9 @@ while cur_HHMM > 913 and cur_HHMM < 1531:
 # Print final MTM and Positions for each user
 for kiteuser in kite_users:
     df_pos = get_positions(kiteuser)
-    iLog(f"[{kiteuser['userid']}] Total MTM = {round(sum(df_pos.mtm),2)} Positions:\n {df_pos[['tradingsymbol', 'quantity', 'mtm']]}",True,True)
+    iLog(f"[{kiteuser['userid']}] Total MTM: {round(sum(df_pos.mtm),2)} Todays P\\L: {df_pos.loc[df_pos['quantity'] == 0, 'mtm'].sum()} \nPositions:\n {df_pos[['tradingsymbol', 'quantity', 'mtm']]}",True,True)
+
+if dow==5:  # Friday
+    delete_old_log_files(log_dir="./log", days=30)  # Delete old log files every Friday
 
 iLog(f"====== End of Algo ====== @ {datetime.datetime.now()}",True,True)
