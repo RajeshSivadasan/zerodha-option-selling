@@ -6,7 +6,7 @@
 # carry_till_expiry_price ? Do we really need this setting? What is the tradeoff?
 # Autoupdate latest version from github using wget and rawurl of this script from github 
 
-version = "1.3.6"
+version = "1.3.7"
 # Kite bypass api video (from TradeViaPython)
 # https://youtu.be/dLtWgpjsWdk?si=cPsQJpd0f1zkE4-N
 
@@ -580,46 +580,47 @@ def place_NSE_option_orders_fixed(kiteuser):
         df_pos =  df_pos[df_pos.tradingsymbol.str.endswith(('CE','PE'),na=False)]
 
         if dict_nifty_ce["tradingsymbol"] in df_pos.tradingsymbol.values:
-            if float(dict_nifty_ce["last_price"]) <= 20.0 :
-                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 30.0)
-                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 60.0)
-                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
+            if float(dict_nifty_ce["last_price"]) <= nifty_ce_max_price_limit : # 15.0:
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp1)   # 30
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp2)   # 60
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp3)   # 90
             
-            elif float(dict_nifty_ce["last_price"]) > 20.0 and float(dict_nifty_ce["last_price"]) <= 40.0:
-                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 60.0)
-                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
-                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 120.0)
+            elif float(dict_nifty_ce["last_price"]) > nifty_ce_max_price_limit and float(dict_nifty_ce["last_price"]) <= nifty_ltp1:  # 30
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp2)   # 60
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp3)   # 90
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp4)   # 120
 
-            elif float(dict_nifty_ce["last_price"]) > 40.0 and float(dict_nifty_ce["last_price"]) <= 80.0:
-                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
-                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 120.0)
-                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 150.0)
+            elif float(dict_nifty_ce["last_price"]) > nifty_ltp1 and float(dict_nifty_ce["last_price"]) <= nifty_ltp2:  # 60
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp3)   # 90
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp4)   # 120
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp5)   # 150
         else:
-                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 0.0)  # round(dict_nifty_ce["last_price"] - 5.0,1)
-                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 30.0)
-                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 60.0)
-                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 0.0)  # Market Order, round(dict_nifty_ce["last_price"] - 5.0,1)
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp1)   # 30
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp2)   # 60
+                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp3)   # 90
 
+        
         if dict_nifty_pe["tradingsymbol"] in df_pos.tradingsymbol.values:
-            if float(dict_nifty_pe["last_price"]) <= 20.0 :
-                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 30.0)
-                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 60.0)
-                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
+            if float(dict_nifty_pe["last_price"]) <= nifty_pe_max_price_limit :
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp1)  # 30
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp2)  # 60
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp3)  # 90
             
-            elif float(dict_nifty_pe["last_price"]) > 20.0 and float(dict_nifty_pe["last_price"]) <= 40.0:
-                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 60.0)
-                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
-                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 120.0)
+            elif float(dict_nifty_pe["last_price"]) > nifty_pe_max_price_limit and float(dict_nifty_pe["last_price"]) <= nifty_ltp1:  # 30
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp2)  # 60
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp3)  # 90
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp4)  # 120
                 
-            elif float(dict_nifty_pe["last_price"]) > 40.0 and float(dict_nifty_pe["last_price"]) <= 80.0:
-                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
-                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 120.0)
-                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 150.0)
+            elif float(dict_nifty_pe["last_price"]) > nifty_ltp1 and float(dict_nifty_pe["last_price"]) <= nifty_ltp2:  # 60
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp3)  # 90
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp4)  # 120
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp5)  # 150
         else:
-                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 0.0)  # round(dict_nifty_pe["last_price"] - 5.0,1)
-                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 30.0)
-                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 60.0)
-                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 0.0)  # Market Order, round(dict_nifty_pe["last_price"] - 5.0,1)
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp1)  # 30
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp2)  # 60
+                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp3)  # 90
 
     else:    
 
@@ -630,14 +631,14 @@ def place_NSE_option_orders_fixed(kiteuser):
         place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 0.0)  # round(dict_nifty_pe["last_price"] - 5.0,1)
 
         # CE Order 2,3,4
-        place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 30.0)
-        place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 60.0)
-        place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 90.0)
+        place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp1)  # 30.0
+        place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp2)  # 60.0
+        place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp3)  # 90.0
 
         # PE Order 2,3,4
-        place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,30.0)
-        place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,60.0)
-        place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,90.0)
+        place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,nifty_ltp1)  # 30.0    
+        place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,nifty_ltp2)  # 60.0
+        place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,nifty_ltp3)  # 90.0
 
 
 def place_BSE_option_orders_fixed(kiteuser):
@@ -664,44 +665,44 @@ def place_BSE_option_orders_fixed(kiteuser):
         df_pos =  df_pos[df_pos.tradingsymbol.str.endswith(('CE','PE'),na=False)]
 
         if dict_sensex_ce["tradingsymbol"] in df_pos.tradingsymbol.values:
-            if float(dict_sensex_ce["last_price"]) <= 50.0 :
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0,exchange='BFO')
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0,exchange='BFO')
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0,exchange='BFO')
+            if float(dict_sensex_ce["last_price"]) <= sensex_ce_max_price_limit :    #30.0
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp1, exchange='BFO')    # 50.0
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp2, exchange='BFO')    # 100.0
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp3, exchange='BFO')    # 150.0
             
-            elif float(dict_sensex_ce["last_price"]) > 50.0 and float(dict_sensex_ce["last_price"]) <= 100.0:
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0,exchange='BFO')
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0,exchange='BFO')
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 250.0,exchange='BFO')
+            elif float(dict_sensex_ce["last_price"]) > sensex_ce_max_price_limit and float(dict_sensex_ce["last_price"]) <= sensex_ltp1:    # 50.0
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp2, exchange='BFO')   # 100.0
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp3, exchange='BFO')   # 150.0
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp4, exchange='BFO')   # 200.0
 
-            elif float(dict_sensex_ce["last_price"]) > 100.0 and float(dict_sensex_ce["last_price"]) <= 150.0:
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0,exchange='BFO')
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 250.0,exchange='BFO')
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 300.0,exchange='BFO')
+            elif float(dict_sensex_ce["last_price"]) > sensex_ltp1 and float(dict_sensex_ce["last_price"]) <= sensex_ltp2:    # 100.0
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp3, exchange='BFO')   # 150.0
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp4, exchange='BFO')   # 200.0
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp5, exchange='BFO')   # 250.0
         else:
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 50.0,exchange='BFO')
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0,exchange='BFO')
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0,exchange='BFO')
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp1, exchange='BFO')   # 50.0
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp2, exchange='BFO')   # 100.0
+                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp3, exchange='BFO')   # 150.0
 
         if dict_sensex_pe["tradingsymbol"] in df_pos.tradingsymbol.values:
-            if float(dict_sensex_pe["last_price"]) <= 50.0 :
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0,exchange='BFO')
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0,exchange='BFO')
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0,exchange='BFO')
+            if float(dict_sensex_pe["last_price"]) <= sensex_pe_max_price_limit :   # 30.0
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp1, exchange='BFO')   # 50.0
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp2, exchange='BFO')   # 100.0
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp3, exchange='BFO')   # 150.0
             
-            elif float(dict_sensex_pe["last_price"]) > 50.0 and float(dict_sensex_pe["last_price"]) <= 100.0:
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0,exchange='BFO')
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0,exchange='BFO')
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 250.0,exchange='BFO')
+            elif float(dict_sensex_pe["last_price"]) > sensex_pe_max_price_limit and float(dict_sensex_pe["last_price"]) <= sensex_ltp1:   # 50.0
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp2, exchange='BFO')   # 100.0
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp3, exchange='BFO')   # 150.0
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp4, exchange='BFO')   # 200.0
                 
-            elif float(dict_sensex_pe["last_price"]) > 100.0 and float(dict_sensex_pe["last_price"]) <= 150.0:
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0,exchange='BFO')
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 250.0,exchange='BFO')
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 300.0,exchange='BFO')
+            elif float(dict_sensex_pe["last_price"]) > sensex_ltp1 and float(dict_sensex_pe["last_price"]) <= sensex_ltp2:
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp3,exchange='BFO')    # 150.0
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp4,exchange='BFO')    # 200.0
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp5,exchange='BFO')    # 250.0
         else:
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 50.0,exchange='BFO')
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0,exchange='BFO')
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0,exchange='BFO')
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp1, exchange='BFO')   # 50.0
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp2, exchange='BFO')   # 100.0
+                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp3, exchange='BFO')   # 150.0
 
     else:    
 
@@ -712,14 +713,14 @@ def place_BSE_option_orders_fixed(kiteuser):
         place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 0.0,exchange='BFO')
 
         # CE Order 2,3,4
-        place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 100.0,exchange='BFO')
-        place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 150.0,exchange='BFO')
-        place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, 200.0,exchange='BFO')
+        place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp1, exchange='BFO')   # 50.0
+        place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp2, exchange='BFO')   # 100.0
+        place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp3, exchange='BFO')   # 150.0
 
         # PE Order 2,3,4
-        place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty,100.0,exchange='BFO')
-        place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty,150.0,exchange='BFO')
-        place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty,200.0,exchange='BFO')
+        place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp1, exchange='BFO')    # 50.0
+        place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp2, exchange='BFO')    # 100.0
+        place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp3, exchange='BFO')    # 150.0
 
 
 def place_order(kiteuser,tradingsymbol,qty,limit_price=None,transaction_type="SELL",order_type="LIMIT",tag="kite_options_sell",exchange="NFO"):
@@ -1131,11 +1132,22 @@ channel_id = cfg.get("tokens", "channel_id").strip()
 iLog(f"====== Starting Algo ({version}) ====== @ {datetime.datetime.now()}",True,True)
 iLog(f"Logging to file :{LOG_FILE}",True)
 
-nifty_ce_max_price_limit = int(cfg.get("info", "nifty_ce_max_price_limit")) # 15
-nifty_pe_max_price_limit = int(cfg.get("info", "nifty_pe_max_price_limit")) # 15
+nifty_ce_max_price_limit = float(cfg.get("info", "nifty_ce_max_price_limit")) # 15
+nifty_pe_max_price_limit = float(cfg.get("info", "nifty_pe_max_price_limit")) # 15
+nifty_ltp1 = float(cfg.get("info", "nifty_ltp1")) # 30.0
+nifty_ltp2 = float(cfg.get("info", "nifty_ltp2")) # 60.0
+nifty_ltp3 = float(cfg.get("info", "nifty_ltp3")) # 90.0
+nifty_ltp4 = float(cfg.get("info", "nifty_ltp4")) # 120.0
+nifty_ltp5 = float(cfg.get("info", "nifty_ltp5")) # 150.0
 
-sensex_ce_max_price_limit = int(cfg.get("info", "sensex_ce_max_price_limit")) # 30
-sensex_pe_max_price_limit = int(cfg.get("info", "sensex_pe_max_price_limit")) # 30
+sensex_ce_max_price_limit = float(cfg.get("info", "sensex_ce_max_price_limit")) # 30
+sensex_pe_max_price_limit = float(cfg.get("info", "sensex_pe_max_price_limit")) # 30
+sensex_ltp1 = float(cfg.get("info", "sensex_ltp1")) # 50.0
+sensex_ltp2 = float(cfg.get("info", "sensex_ltp2")) # 100.0
+sensex_ltp3 = float(cfg.get("info", "sensex_ltp3")) # 150.0
+sensex_ltp4 = float(cfg.get("info", "sensex_ltp4")) # 200.0
+sensex_ltp5 = float(cfg.get("info", "sensex_ltp5")) # 250.0
+
 
 short_strangle_time = int(cfg.get("info", "short_strangle_time"))   # 925
 short_strangle_flag = False
