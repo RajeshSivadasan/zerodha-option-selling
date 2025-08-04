@@ -6,7 +6,7 @@
 # carry_till_expiry_price ? Do we really need this setting? What is the tradeoff?
 # Autoupdate latest version from github using wget and rawurl of this script from github 
 
-version = "1.3.7"
+version = "1.3.9"
 # Kite bypass api video (from TradeViaPython)
 # https://youtu.be/dLtWgpjsWdk?si=cPsQJpd0f1zkE4-N
 
@@ -695,7 +695,7 @@ def place_BSE_option_orders_fixed(kiteuser):
                 place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp3, exchange='BFO')   # 150.0
                 place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp4, exchange='BFO')   # 200.0
                 
-            elif float(dict_sensex_pe["last_price"]) > sensex_ltp1 and float(dict_sensex_pe["last_price"]) <= sensex_ltp2:
+            elif float(dict_sensex_pe["last_price"]) > sensex_ltp1 and float(dict_sensex_pe["last_price"]) <= sensex_ltp2:  # 100.0
                 place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp3,exchange='BFO')    # 150.0
                 place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp4,exchange='BFO')    # 200.0
                 place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp5,exchange='BFO')    # 250.0
@@ -885,7 +885,7 @@ def get_positions(kiteuser,exchange='BOTH'):
 
             # Get only the options and not equity or other instruments
             if df_pos.empty:
-                return pd.DataFrame([[0]],columns=['quantity'])
+                return pd.DataFrame([[0,0,'NoPositionFound']],columns=['quantity','mtm','tradingsymbol']) 
             else:
                 # Get latest ltp
                 # df_pos["ltp"]=[val['last_price'] for keys, val in kite.ltp(df_pos.instrument_token).items()]
@@ -1185,6 +1185,9 @@ stratgy2_entry_time = int(cfg.get("realtime", "stratgy2_entry_time"))
 eod_process_time = int(cfg.get("info", "eod_process_time")) # Time at which the eod process needs to run. Usually final profit/loss booking(in case of expiry)
 
 
+delete_old_log_files_dow = int(cfg.get("info", "delete_old_log_files_dow")) # Day of week on which old log files need to be deleted. 0=Monday, 1=Tuesday, 2=Wednesday, 3=Thursday, 4=Friday, 5=Saturday, 6=Sunday
+delete_old_log_files_days = int(cfg.get("info", "delete_old_log_files_days")) # Number of days after which the log files need to be deleted. Default is 30 days
+
 
 book_profit_eod_processed = 0
 
@@ -1406,12 +1409,13 @@ while cur_HHMM > 913 and cur_HHMM < 1531:
 
     t1 = time.time()
 
+    # Run Strategy1
     if stratgy1_entry_time==cur_HHMM:
         stratgy1_entry_time = 0
         iLog(f"Triggering Strategy1 - Sell Far CE and PE",True,True)
         strategy1()
     
-    # EOD profit booking / Squareoff
+    # Run EOD profit booking / Squareoff
     elif eod_process_time==cur_HHMM:
         if book_profit_eod_processed == 0 :
             # Book profit at eod or loss in case expiry
@@ -1421,6 +1425,7 @@ while cur_HHMM > 913 and cur_HHMM < 1531:
             book_profit_eod_processed = 1
         eod_process_time = 0
 
+    # Run process_orders
     elif cur_HHMM > 916:
         # Run process_orders in parallel for all kiteusers
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(kite_users)) as executor:
@@ -1459,17 +1464,17 @@ while cur_HHMM > 913 and cur_HHMM < 1531:
         get_realtime_config()
 
 
-
+    # Print MTM for each user every 5 mins
     if time.time()>nxt_5min:
         nxt_5min = time.time() + (5 * 60)
         iLog("In 5 mins block")
-        # Print MTM for each user every 5 mins
+        
         for kiteuser in kite_users:
             df_pos = get_positions(kiteuser)
             iLog( f"[{kiteuser['userid']}] mtm = {round(sum(df_pos.mtm),2)} net_positon = {sum(abs(df_pos.quantity))}",sendTeleMsg=True) 
 
 
-    # End of algo activities
+    # End of While loop .. algo activities
 
 
 # Print final MTM and Positions for each user
@@ -1477,7 +1482,7 @@ for kiteuser in kite_users:
     df_pos = get_positions(kiteuser)
     iLog(f"[{kiteuser['userid']}] Total MTM: {round(sum(df_pos.mtm),2)} Todays P\\L: {df_pos.loc[df_pos['quantity'] == 0, 'mtm'].sum()} \nPositions:\n {df_pos[['tradingsymbol', 'quantity', 'mtm']]}",True,True)
 
-if dow==5:  # Friday
-    delete_old_log_files(log_dir="./log", days=30)  # Delete old log files every Friday
+if dow==delete_old_log_files_dow:  # Monday
+    delete_old_log_files(log_dir="./log", days=delete_old_log_files_days)  # Delete old log files every monday for the last 30 days
 
 iLog(f"====== End of Algo ====== @ {datetime.datetime.now()}",True,True)
