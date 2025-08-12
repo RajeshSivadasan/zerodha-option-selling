@@ -6,7 +6,7 @@
 # carry_till_expiry_price ? Do we really need this setting? What is the tradeoff?
 # Autoupdate latest version from github using wget and rawurl of this script from github 
 
-version = "1.3.9"
+version = "1.4.0"
 # Kite bypass api video (from TradeViaPython)
 # https://youtu.be/dLtWgpjsWdk?si=cPsQJpd0f1zkE4-N
 
@@ -641,6 +641,7 @@ def place_NSE_option_orders_fixed(kiteuser):
         place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,nifty_ltp3)  # 90.0
 
 
+
 def place_BSE_option_orders_fixed(kiteuser):
     '''
     Dependency on get_options_BSE() to get the dict_sensex_ce and dict_sensex_pe; get_options need optimisations
@@ -974,7 +975,12 @@ def book_profit_PERC(kiteuser,df_pos):
             # Get the partial profit booking quantity
             
             qty = abs(opt.quantity) * (kiteuser["profit_booking_qty_perc"]/100)
-            qty = qty - (qty % -75)
+            
+            if opt.exchange == 'BFO':
+                qty = qty - (qty % (-1* sensex_opt_per_lot_qty))
+            else:
+                qty = qty - (qty % (-1* nifty_opt_per_lot_qty))
+
             qty = int(qty * (-1 if opt.quantity>0 else 1))   # Get reverse sign to b
             iLog(strMsgSuffix + f" exchange={opt.exchange} tradingsymbol={tradingsymbol} opt.quantity={opt.quantity} qty={qty} opt.ltp={opt.ltp} carry_till_expiry_price={carry_till_expiry_price} opt.mtm={opt.mtm} opt.profit_target_amt={opt.profit_target_amt}")
             # Need to provision for partial profit booking
@@ -1009,20 +1015,18 @@ def book_profit_eod(kiteuser):
                 if opt.expiry == datetime.date.today(): # Replaced exipry_date with todays date
                     # Force squareoff
                     iLog(strMsgSuffix + f" **************** Force Squareoff order for tradingsymbol={tradingsymbol} as expiry today ****************",True)
-                    limit_price = 0
                     if qty > 0 :
                         transaction_type = kite.TRANSACTION_TYPE_SELL
-                        limit_price = round(opt.ltp - 5)
+                        
                     else:
                         transaction_type = kite.TRANSACTION_TYPE_BUY
-                        limit_price = round(opt.ltp + 5)
 
                     qty = abs(qty)
 
                     # place_order(kiteuser, tradingsymbol=tradingsymbol, qty=qty, transaction_type=transaction_type, order_type=kite.ORDER_TYPE_MARKET)
                     # Changed to limit order
                     # Need to check and update or cancel existing order
-                    place_order(kiteuser, tradingsymbol=tradingsymbol, qty=qty, limit_price=limit_price, transaction_type=transaction_type,tag="EODSquareoff",exchange=opt.exchange)
+                    place_order(kiteuser, tradingsymbol=tradingsymbol, qty=qty, limit_price=0.0, transaction_type=transaction_type,tag="EODSquareoff",exchange=opt.exchange)
                 
                 else:
                     # Squareoff only if MTM > profit target
@@ -1480,7 +1484,7 @@ while cur_HHMM > 913 and cur_HHMM < 1531:
 # Print final MTM and Positions for each user
 for kiteuser in kite_users:
     df_pos = get_positions(kiteuser)
-    iLog(f"[{kiteuser['userid']}] Total MTM: {round(sum(df_pos.mtm),2)} Todays P\\L: {df_pos.loc[df_pos['quantity'] == 0, 'mtm'].sum()} \nPositions:\n {df_pos[['tradingsymbol', 'quantity', 'mtm']]}",True,True)
+    iLog(f"[{kiteuser['userid']}] Total MTM: {round(sum(df_pos.mtm),2)} Todays P\\L: {round(df_pos.loc[df_pos['quantity'] == 0, 'mtm'].sum(),2)} \nPositions:\n {df_pos[['tradingsymbol', 'quantity', 'mtm']]}",True,True)
 
 if dow==delete_old_log_files_dow:  # Monday
     delete_old_log_files(log_dir="./log", days=delete_old_log_files_days)  # Delete old log files every monday for the last 30 days
