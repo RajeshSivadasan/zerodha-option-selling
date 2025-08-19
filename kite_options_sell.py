@@ -1,12 +1,14 @@
 # Todo:
-# In book_profit_PERC(), use of partial_profit_booked_flg logic to be revisited as it is not addressing multiple positions and reentry cases  
+# In book_profit_PERC(), use of partial_profit_booked_flg logic to be revisited as it is not addressing multiple positions and reentry cases 
+# Also Sensex and nifty options to be handled separately in the above function 
 # Need to check and update or cancel existing order before placcing squareoff order
 # process_orders() need restructuring
 # If dow is 5,1,2 and MTM is below -1% then no order to be placed that day and wait for next day
 # carry_till_expiry_price ? Do we really need this setting? What is the tradeoff?
 # Autoupdate latest version from github using wget and rawurl of this script from github 
 
-version = "1.4.0"
+# 1.4.1 Fixed auto squareoff issue due to sensex expiry date not being set properly
+version = "1.4.1"
 # Kite bypass api video (from TradeViaPython)
 # https://youtu.be/dLtWgpjsWdk?si=cPsQJpd0f1zkE4-N
 
@@ -1003,38 +1005,41 @@ def book_profit_eod(kiteuser):
     
     df_pos =  df_pos[df_pos.tradingsymbol.str.endswith(('CE','PE'),na=False)]
 
-    if abs(max(df_pos.quantity))>1:
+    if df_pos.empty:
+        iLog(strMsgSuffix + " No positions found to book profit at EOD")
+        return
+    else: 
+        if max(abs(df_pos.quantity))>1:
+            for opt in df_pos.itertuples():
+                if abs(opt.quantity)>0:
+                    tradingsymbol = opt.tradingsymbol
+                    qty = int(opt.quantity)
+                    iLog(strMsgSuffix + f" exchange={opt.exchange} tradingsymbol={tradingsymbol} qty={qty} opt.ltp={opt.ltp} expiry={opt.expiry} carry_till_expiry_price={carry_till_expiry_price} opt.mtm={opt.mtm} opt.profit_target_amt={opt.profit_target_amt}")
+                    # Check if expiry is today then force squareoff
+                    
+                    if opt.expiry == datetime.date.today(): # Replaced exipry_date with todays date
+                        # Force squareoff
+                        iLog(strMsgSuffix + f" **************** Force Squareoff order for tradingsymbol={tradingsymbol} as expiry today ****************",True)
+                        if qty > 0 :
+                            transaction_type = kite.TRANSACTION_TYPE_SELL
+                            
+                        else:
+                            transaction_type = kite.TRANSACTION_TYPE_BUY
 
-        for opt in df_pos.itertuples():
-            if abs(opt.quantity)>0:
-                tradingsymbol = opt.tradingsymbol
-                qty = int(opt.quantity)
-                iLog(strMsgSuffix + f" exchange={opt.exchange} tradingsymbol={tradingsymbol} qty={qty} opt.ltp={opt.ltp} expiry={opt.expiry} carry_till_expiry_price={carry_till_expiry_price} opt.mtm={opt.mtm} opt.profit_target_amt={opt.profit_target_amt}")
-                # Check if expiry is today then force squareoff
-                
-                if opt.expiry == datetime.date.today(): # Replaced exipry_date with todays date
-                    # Force squareoff
-                    iLog(strMsgSuffix + f" **************** Force Squareoff order for tradingsymbol={tradingsymbol} as expiry today ****************",True)
-                    if qty > 0 :
-                        transaction_type = kite.TRANSACTION_TYPE_SELL
-                        
-                    else:
-                        transaction_type = kite.TRANSACTION_TYPE_BUY
+                        qty = abs(qty)
 
-                    qty = abs(qty)
-
-                    # place_order(kiteuser, tradingsymbol=tradingsymbol, qty=qty, transaction_type=transaction_type, order_type=kite.ORDER_TYPE_MARKET)
-                    # Changed to limit order
-                    # Need to check and update or cancel existing order
-                    place_order(kiteuser, tradingsymbol=tradingsymbol, qty=qty, limit_price=0.0, transaction_type=transaction_type,tag="EODSquareoff",exchange=opt.exchange)
-                
-                else:
-                    # Squareoff only if MTM > profit target
-                    if (tradingsymbol[-2:] in ('CE','PE')) and (opt.quantity < 0) and (opt.mtm > opt.profit_target_amt) :
-                        iLog(strMsgSuffix + f" Execution Commented: Placing Squareoff order for tradingsymbol={tradingsymbol}",True)
-                        # place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty*-1, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET)
+                        # place_order(kiteuser, tradingsymbol=tradingsymbol, qty=qty, transaction_type=transaction_type, order_type=kite.ORDER_TYPE_MARKET)
                         # Changed to limit order
-                        # place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty*-1,limit_price=round(opt.ltp + 5), transaction_type=kite.TRANSACTION_TYPE_BUY)
+                        # Need to check and update or cancel existing order
+                        place_order(kiteuser, tradingsymbol=tradingsymbol, qty=qty, limit_price=0.0, transaction_type=transaction_type,tag="EODSquareoff",exchange=opt.exchange)
+                    
+                    else:
+                        # Squareoff only if MTM > profit target
+                        if (tradingsymbol[-2:] in ('CE','PE')) and (opt.quantity < 0) and (opt.mtm > opt.profit_target_amt) :
+                            iLog(strMsgSuffix + f" Execution Commented: Placing Squareoff order for tradingsymbol={tradingsymbol}",True)
+                            # place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty*-1, transaction_type=kite.TRANSACTION_TYPE_BUY, order_type=kite.ORDER_TYPE_MARKET)
+                            # Changed to limit order
+                            # place_order(kiteuser,tradingsymbol=tradingsymbol,qty=qty*-1,limit_price=round(opt.ltp + 5), transaction_type=kite.TRANSACTION_TYPE_BUY)
 
 
 def get_realtime_config():
@@ -1346,6 +1351,9 @@ df = df[ (df.segment=='NFO-OPT')  & (df.name=='NIFTY') & (df.expiry==curr_expiry
 df_BFO = df_BFO[ (df_BFO.segment=='BFO-OPT')  & (df_BFO.name=='SENSEX') & (df_BFO.expiry==curr_expiry_date_BFO) ]  
 
 
+# concatenate the two dataframes
+df = pd.concat([df, df_BFO], ignore_index=True)
+
 # Get a dict of instrument_token and expiry for getting the expiry in the get_positions()
 dict_token_expiry = df.set_index('instrument_token').to_dict()['expiry']
 
@@ -1387,16 +1395,8 @@ lst_sensex_opt = df_BFO[ ((df_BFO.strike>=sensex_atm-3000) & (df_BFO.strike<=sen
 
 # Test Area
 
-
-# get_options_NSE()   # Get the latest Sensex options as per the settings  
 # for kiteuser in kite_users:
-#     place_NSE_option_orders_fixed(kiteuser) 
-
-# get_options_BSE()   # Get the latest Sensex options as per the settings  
-# for kiteuser in kite_users:
-#     place_BSE_option_orders_fixed(kiteuser) 
-
-# # strategy1()
+#     book_profit_eod(kiteuser) 
 
 
 # print("Test Complete")
