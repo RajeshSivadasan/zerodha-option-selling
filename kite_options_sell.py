@@ -8,7 +8,7 @@
 # Autoupdate latest version from github using wget and rawurl of this script from github 
 
 # 1.4.1 Fixed auto squareoff issue due to sensex expiry date not being set properly
-version = "1.4.1"
+version = "1.4.2"
 # Kite bypass api video (from TradeViaPython)
 # https://youtu.be/dLtWgpjsWdk?si=cPsQJpd0f1zkE4-N
 
@@ -597,7 +597,7 @@ def place_NSE_option_orders_fixed(kiteuser):
                 place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp4)   # 120
                 place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp5)   # 150
         else:
-                place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 0.0)  # Market Order, round(dict_nifty_ce["last_price"] - 5.0,1)
+                if curr_expiry_date != datetime.date.today(): place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 0.0)  # Market Order, round(dict_nifty_ce["last_price"] - 5.0,1)
                 place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp1)   # 30
                 place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp2)   # 60
                 place_order(kiteuser, dict_nifty_ce["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp3)   # 90
@@ -619,7 +619,7 @@ def place_NSE_option_orders_fixed(kiteuser):
                 place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp4)  # 120
                 place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp5)  # 150
         else:
-                place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 0.0)  # Market Order, round(dict_nifty_pe["last_price"] - 5.0,1)
+                if curr_expiry_date != datetime.date.today(): place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, 0.0)  # Market Order, round(dict_nifty_pe["last_price"] - 5.0,1)
                 place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp1)  # 30
                 place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp2)  # 60
                 place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty, nifty_ltp3)  # 90
@@ -683,7 +683,7 @@ def place_BSE_option_orders_fixed(kiteuser):
                 place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp4, exchange='BFO')   # 200.0
                 place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp5, exchange='BFO')   # 250.0
         else:
-                place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp1, exchange='BFO')   # 50.0
+                if curr_expiry_date_BFO != datetime.date.today(): place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp1, exchange='BFO')   # 50.0
                 place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp2, exchange='BFO')   # 100.0
                 place_order(kiteuser, dict_sensex_ce["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp3, exchange='BFO')   # 150.0
 
@@ -703,7 +703,7 @@ def place_BSE_option_orders_fixed(kiteuser):
                 place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp4,exchange='BFO')    # 200.0
                 place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp5,exchange='BFO')    # 250.0
         else:
-                place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp1, exchange='BFO')   # 50.0
+                if curr_expiry_date_BFO != datetime.date.today(): place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp1, exchange='BFO')   # 50.0
                 place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp2, exchange='BFO')   # 100.0
                 place_order(kiteuser, dict_sensex_pe["tradingsymbol"], sensex_opt_base_lot * sensex_opt_per_lot_qty, sensex_ltp3, exchange='BFO')   # 150.0
 
@@ -854,18 +854,19 @@ def process_orders(kiteuser,flg_place_orders=False):
                         place_order(kiteuser, tradingsymbol=tradingsymbol, qty=qty, limit_price=limit_price, transaction_type=transaction_type)
 
             else:
-                # Apply Mean Reversion
-                # Check if order is alredy there and pending
-                iLog(strMsgSuffix + " Checking existing positions and applying Mean Reversion orders if not already present and mtm<100")
-                # Check and Place mean reversion orders for the current positions
-                for opt in df_pos.itertuples():
-                    iLog(strMsgSuffix + f" opt.tradingsymbol={opt.tradingsymbol} opt.instrument_token={opt.instrument_token} opt.mtm={opt.mtm}")
-                    if opt.mtm<100:
-                        get_options(opt.instrument_token)
-                        if flg_place_orders:
-                            place_option_orders(kiteuser,True,True)
-                        else:
-                            iLog(strMsgSuffix + " Mean reversion orders will NOT be placed as flg_place_orders is false")
+                iLog(strMsgSuffix + " Mean reversion orders disabled as it uses Pivot Points. Can be revisited in future if required.")
+                # # Apply Mean Reversion
+                # # Check if order is alredy there and pending
+                # iLog(strMsgSuffix + " Checking existing positions and applying Mean Reversion orders if not already present and mtm<100")
+                # # Check and Place mean reversion orders for the current positions
+                # for opt in df_pos.itertuples():
+                #     iLog(strMsgSuffix + f" opt.tradingsymbol={opt.tradingsymbol} opt.instrument_token={opt.instrument_token} opt.mtm={opt.mtm}")
+                #     if opt.mtm<100:
+                #         get_options(opt.instrument_token)
+                #         if flg_place_orders:
+                #             place_option_orders(kiteuser,True,True)
+                #         else:
+                #             iLog(strMsgSuffix + " Mean reversion orders will NOT be placed as flg_place_orders is false")
     
 
 def get_positions(kiteuser,exchange='BOTH'):
