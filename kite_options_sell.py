@@ -7,8 +7,8 @@
 # carry_till_expiry_price ? Do we really need this setting? What is the tradeoff?
 # Autoupdate latest version from github using wget and rawurl of this script from github 
 
-# 1.4.1 Fixed auto squareoff issue due to sensex expiry date not being set properly
-version = "1.4.2"
+# 1.4.3 Impemented risk profiles for nifty and sensex options
+version = "1.4.3"
 # Kite bypass api video (from TradeViaPython)
 # https://youtu.be/dLtWgpjsWdk?si=cPsQJpd0f1zkE4-N
 
@@ -196,7 +196,7 @@ def get_pivot_points(instrument_token):
 
 
 def get_options(instrument_token=None):
-    '''
+    ''' This is deprecated. Use get_options_NSE()/BSE() instead. For now hardcoded values are used for limits
     Gets the call and put option in the global df objects (dict_nifty_ce, dict_nifty_pe, dict_nifty_opt_selected) 
     for the required strike as per the parameters and and calculates pivot points for entry and exit
     '''
@@ -221,6 +221,8 @@ def get_options(instrument_token=None):
     # print(df_nifty_opt)
 
     if instrument_token is None:
+        nifty_ce_max_price_limit=15.0
+        nifty_pe_max_price_limit=10.0
         # Check if we can use Dask to parallelize the operations
         # If no instrument token passed then get default options for both CE and PE
         # Get the CE/PE instrument data(instrument_token,last_price,type,symbol) where last_price is maximum but less than equal to option max price limit (e.g <=200)
@@ -293,11 +295,11 @@ def get_options(instrument_token=None):
             iLog(f"Unable to get Pivot points for selected CE/PE  {instrument_token}")
 
 
-def get_options_NSE():
+def get_options_NSE(risk_profile):
     '''
-    Gets the call and put option in the global df objects (dict_nifty_ce, dict_nifty_pe) 
+    Returns the call and put option as dict objects (dict_nifty_ce, dict_nifty_pe) 
     '''
-    global dict_nifty_ce, dict_nifty_pe
+    # global dict_nifty_ce, dict_nifty_pe
 
     
     iLog(f"get_options_NSE():")
@@ -315,6 +317,9 @@ def get_options_NSE():
 
     # print("df_nifty_opt:=\n{df_nifty_opt}")
 
+    nifty_ce_max_price_limit,nifty_pe_max_price_limit,_,_,_,_,_= get_nifty_ltp_values(risk_profile)
+
+    iLog(f"get_options_NSE(): risk_profile={risk_profile}, nifty_ce_max_price_limit={nifty_ce_max_price_limit}, nifty_pe_max_price_limit={nifty_pe_max_price_limit}")
 
     # Check if we can use Dask to parallelize the operations
     # If no instrument token passed then get default options for both CE and PE
@@ -322,8 +327,8 @@ def get_options_NSE():
     df_nifty_opt_ce = df_nifty_opt[(df_nifty_opt.type=='CE') & (df_nifty_opt.last_price==df_nifty_opt[(df_nifty_opt.type=='CE') & (df_nifty_opt.last_price<=nifty_ce_max_price_limit)].last_price.max())]
     df_nifty_opt_pe = df_nifty_opt[(df_nifty_opt.type=='PE') & (df_nifty_opt.last_price==df_nifty_opt[(df_nifty_opt.type=='PE') & (df_nifty_opt.last_price<=nifty_pe_max_price_limit)].last_price.max())]
 
-    iLog(f"get_options(): Call selected is : {df_nifty_opt_ce.iloc[0,3]}, last_price = {df_nifty_opt_ce.iloc[0,1]}")
-    iLog(f"get_options(): Put  selected is : {df_nifty_opt_pe.iloc[0,3]}, last_price = {df_nifty_opt_pe.iloc[0,1]}")
+    iLog(f"get_options_NSE(): Call selected is : {df_nifty_opt_ce.iloc[0,3]}, last_price = {df_nifty_opt_ce.iloc[0,1]}")
+    iLog(f"get_options_NSE(): Put  selected is : {df_nifty_opt_pe.iloc[0,3]}, last_price = {df_nifty_opt_pe.iloc[0,1]}")
 
 
     # CE
@@ -336,12 +341,14 @@ def get_options_NSE():
     dict_nifty_pe["last_price"] = kite.ltp(instrument_token)[instrument_token]['last_price']
     dict_nifty_pe["tradingsymbol"] = df_nifty_opt_pe.iloc[0,3]
 
+    return dict_nifty_ce, dict_nifty_pe
 
-def get_options_BSE():
+
+def get_options_BSE(risk_profile):
     '''
-    Gets the call and put option in the global df objects (dict_sensex_ce, dict_sensex_pe) 
+    Returns the call and put option as dict objects (dict_sensex_ce, dict_sensex_pe) 
     '''
-    global dict_sensex_ce, dict_sensex_pe
+    # global dict_sensex_ce, dict_sensex_pe
 
     
     iLog(f"get_options_BSE():")
@@ -357,14 +364,18 @@ def get_options_BSE():
 
     # print("df_sensex_opt:=\n{df_sensex_opt}")
 
+    sensex_ce_max_price_limit,sensex_pe_max_price_limit,_,_,_,_,_= get_sensex_ltp_values(risk_profile)
+
+    iLog(f"get_options_NSE(): risk_profile={risk_profile}, sensex_ce_max_price_limit={sensex_ce_max_price_limit}, sensex_pe_max_price_limit={sensex_pe_max_price_limit}")
+
 
     # Check if we can use Dask to parallelize the operations
     # Get the CE/PE instrument data(instrument_token,last_price,type,symbol) where last_price is maximum but less than equal to option max price limit (e.g <=200)
     df_sensex_opt_ce = df_sensex_opt[(df_sensex_opt.type=='CE') & (df_sensex_opt.last_price==df_sensex_opt[(df_sensex_opt.type=='CE') & (df_sensex_opt.last_price<=sensex_ce_max_price_limit)].last_price.max())]
     df_sensex_opt_pe = df_sensex_opt[(df_sensex_opt.type=='PE') & (df_sensex_opt.last_price==df_sensex_opt[(df_sensex_opt.type=='PE') & (df_sensex_opt.last_price<=sensex_pe_max_price_limit)].last_price.max())]
 
-    iLog(f"get_options(): Call selected is : {df_sensex_opt_ce.iloc[0,3]}, last_price = {df_sensex_opt_ce.iloc[0,1]}")
-    iLog(f"get_options(): Put  selected is : {df_sensex_opt_pe.iloc[0,3]}, last_price = {df_sensex_opt_pe.iloc[0,1]}")
+    iLog(f"get_options_BSE(): Call selected is : {df_sensex_opt_ce.iloc[0,3]}, last_price = {df_sensex_opt_ce.iloc[0,1]}")
+    iLog(f"get_options_BSE(): Put  selected is : {df_sensex_opt_pe.iloc[0,3]}, last_price = {df_sensex_opt_pe.iloc[0,1]}")
 
 
     # CE
@@ -376,6 +387,8 @@ def get_options_BSE():
     instrument_token = str(df_sensex_opt_pe.iloc[0,0])
     dict_sensex_pe["last_price"] = kite.ltp(instrument_token)[instrument_token]['last_price']
     dict_sensex_pe["tradingsymbol"] = df_sensex_opt_pe.iloc[0,3]
+
+    return dict_sensex_ce, dict_sensex_pe
 
 
 def place_option_orders(kiteuser,flgMeanReversion=False,flgPlaceSelectedOptionOrder=False):
@@ -560,6 +573,38 @@ def place_option_orders_CEPE(kiteuser,flgMeanReversion,dict_opt):
             iLog(f"[{kiteuser['userid']}] place_option_orders_CEPE(): flgMeanReversion=False, Unable to find pivots and place order for {tradingsymbol}")
 
 
+def get_nifty_ltp_values(risk_profile):
+    if risk_profile == 'H':
+        nifty_ce_max_price_limit = nifty_ce_max_price_limit_risk_H
+        nifty_pe_max_price_limit = nifty_pe_max_price_limit_risk_H
+        nifty_ltp1 = nifty_risk_H_ltp1
+        nifty_ltp2 = nifty_risk_H_ltp2
+        nifty_ltp3 = nifty_risk_H_ltp3
+        nifty_ltp4 = nifty_risk_H_ltp4
+        nifty_ltp5 = nifty_risk_H_ltp5
+    elif risk_profile == 'M':
+        nifty_ce_max_price_limit = nifty_ce_max_price_limit_risk_M
+        nifty_pe_max_price_limit = nifty_pe_max_price_limit_risk_M
+        nifty_ltp1 = nifty_risk_M_ltp1
+        nifty_ltp2 = nifty_risk_M_ltp2
+        nifty_ltp3 = nifty_risk_M_ltp3
+        nifty_ltp4 = nifty_risk_M_ltp4
+        nifty_ltp5 = nifty_risk_M_ltp5
+    else:
+        if risk_profile != 'L':
+            iLog(f"get_nifty_ltp_values(): Invalid risk_profile {risk_profile}. Setting to Low")
+        
+        nifty_ce_max_price_limit = nifty_ce_max_price_limit_risk_L
+        nifty_pe_max_price_limit = nifty_pe_max_price_limit_risk_L
+        nifty_ltp1 = nifty_risk_L_ltp1
+        nifty_ltp2 = nifty_risk_L_ltp2
+        nifty_ltp3 = nifty_risk_L_ltp3
+        nifty_ltp4 = nifty_risk_L_ltp4
+        nifty_ltp5 = nifty_risk_L_ltp5
+
+    return nifty_ce_max_price_limit, nifty_pe_max_price_limit, nifty_ltp1, nifty_ltp2, nifty_ltp3, nifty_ltp4, nifty_ltp5    
+
+
 def place_NSE_option_orders_fixed(kiteuser):
     '''
     Dependency on get_options_NSE() to get the dict_nifty_ce and dict_nifty_pe; get_options need optimisations
@@ -567,7 +612,16 @@ def place_NSE_option_orders_fixed(kiteuser):
     '''
 
     iLog(f"[{kiteuser['userid']}] place_NSE_option_orders_fixed():")
-    nifty_opt_base_lot = kiteuser['nifty_opt_base_lot']    
+    
+    nifty_opt_base_lot = kiteuser['nifty_opt_base_lot']
+    risk_profile = kiteuser['risk_profile']
+    
+    iLog(f"[{kiteuser['userid']}] place_NSE_option_orders_fixed(): risk_profile={risk_profile}, nifty_opt_base_lot={nifty_opt_base_lot}")
+
+    nifty_ce_max_price_limit, nifty_pe_max_price_limit, nifty_ltp1, nifty_ltp2, nifty_ltp3, nifty_ltp4, nifty_ltp5 = get_nifty_ltp_values(risk_profile)   
+
+    # Get nifty options for the risk profile
+    dict_nifty_ce, dict_nifty_pe = get_options_NSE(risk_profile) 
 
     df_pos = get_positions(kiteuser,'NFO')
 
@@ -643,6 +697,37 @@ def place_NSE_option_orders_fixed(kiteuser):
         place_order(kiteuser, dict_nifty_pe["tradingsymbol"], nifty_opt_base_lot * nifty_opt_per_lot_qty,nifty_ltp3)  # 90.0
 
 
+def get_sensex_ltp_values(risk_profile):
+    if risk_profile == 'H':
+        sensex_ce_max_price_limit = sensex_ce_max_price_limit_risk_H
+        sensex_pe_max_price_limit = sensex_pe_max_price_limit_risk_H
+        sensex_ltp1 = sensex_risk_H_ltp1
+        sensex_ltp2 = sensex_risk_H_ltp2
+        sensex_ltp3 = sensex_risk_H_ltp3
+        sensex_ltp4 = sensex_risk_H_ltp4
+        sensex_ltp5 = sensex_risk_H_ltp5
+    elif risk_profile == 'M':
+        sensex_ce_max_price_limit = sensex_ce_max_price_limit_risk_M
+        sensex_pe_max_price_limit = sensex_pe_max_price_limit_risk_M
+        sensex_ltp1 = sensex_risk_M_ltp1
+        sensex_ltp2 = sensex_risk_M_ltp2
+        sensex_ltp3 = sensex_risk_M_ltp3
+        sensex_ltp4 = sensex_risk_M_ltp4
+        sensex_ltp5 = sensex_risk_M_ltp5
+    else:
+        if risk_profile != 'L':
+            iLog(f"get_sensex_ltp_values(): Invalid risk_profile {risk_profile}. Setting to Low")
+        
+        sensex_ce_max_price_limit = sensex_ce_max_price_limit_risk_L
+        sensex_pe_max_price_limit = sensex_pe_max_price_limit_risk_L
+        sensex_ltp1 = sensex_risk_L_ltp1
+        sensex_ltp2 = sensex_risk_L_ltp2
+        sensex_ltp3 = sensex_risk_L_ltp3
+        sensex_ltp4 = sensex_risk_L_ltp4
+        sensex_ltp5 = sensex_risk_L_ltp5
+
+    return sensex_ce_max_price_limit, sensex_pe_max_price_limit, sensex_ltp1, sensex_ltp2, sensex_ltp3, sensex_ltp4, sensex_ltp5
+
 
 def place_BSE_option_orders_fixed(kiteuser):
     '''
@@ -651,7 +736,16 @@ def place_BSE_option_orders_fixed(kiteuser):
     '''
 
     iLog(f"[{kiteuser['userid']}] place_BSE_option_orders_fixed():")
-    sensex_opt_base_lot = kiteuser['sensex_opt_base_lot']    
+    sensex_opt_base_lot = kiteuser['sensex_opt_base_lot']
+
+    risk_profile = kiteuser['risk_profile']
+    
+    iLog(f"[{kiteuser['userid']}] place_BSE_option_orders_fixed(): risk_profile={risk_profile}, sensex_opt_base_lot={sensex_opt_base_lot}")
+
+    sensex_ce_max_price_limit, sensex_pe_max_price_limit, sensex_ltp1, sensex_ltp2, sensex_ltp3, sensex_ltp4, sensex_ltp5 = get_sensex_ltp_values(risk_profile) 
+
+    # Get sensex options for the risk profile
+    dict_sensex_ce, dict_sensex_pe = get_options_BSE(risk_profile)       
 
     df_pos = get_positions(kiteuser,'BFO')
 
@@ -928,7 +1022,6 @@ def strategy1():
     
     # Check day of week
     if dow == 1 or dow == 2:  # Monday, Tuesday
-        get_options_BSE()   # Get the latest Sensex options as per the settings  
         # for kiteuser in kite_users:
         #     place_BSE_option_orders_fixed(kiteuser) 
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(kite_users)) as executor:
@@ -943,7 +1036,6 @@ def strategy1():
 
 
     elif dow == 3 or dow == 4 :  # Wednesday / Thursday
-        get_options_NSE()   # Get the latest options as per the settings 
         # for kiteuser in kite_users: 
         #     place_NSE_option_orders_fixed(kiteuser)
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(kite_users)) as executor:
@@ -954,7 +1046,6 @@ def strategy1():
                     future.result()
                 except Exception as e:
                     iLog(f"[{kiteuser['userid']}] Exception '{e}' occured while processing place_NSE_option_orders_fixed(kiteuser) in parallel.", True)
-
 
 
 # Check if we need to set SL for this strategy
@@ -1142,21 +1233,59 @@ channel_id = cfg.get("tokens", "channel_id").strip()
 iLog(f"====== Starting Algo ({version}) ====== @ {datetime.datetime.now()}",True,True)
 iLog(f"Logging to file :{LOG_FILE}",True)
 
-nifty_ce_max_price_limit = float(cfg.get("info", "nifty_ce_max_price_limit")) # 15
-nifty_pe_max_price_limit = float(cfg.get("info", "nifty_pe_max_price_limit")) # 15
-nifty_ltp1 = float(cfg.get("info", "nifty_ltp1")) # 30.0
-nifty_ltp2 = float(cfg.get("info", "nifty_ltp2")) # 60.0
-nifty_ltp3 = float(cfg.get("info", "nifty_ltp3")) # 90.0
-nifty_ltp4 = float(cfg.get("info", "nifty_ltp4")) # 120.0
-nifty_ltp5 = float(cfg.get("info", "nifty_ltp5")) # 150.0
+# Nifty Values for risk_profile High
+nifty_ce_max_price_limit_risk_H = float(cfg.get("info", "nifty_ce_max_price_limit_risk_H")) # 15
+nifty_pe_max_price_limit_risk_H = float(cfg.get("info", "nifty_pe_max_price_limit_risk_H")) # 15
+nifty_risk_H_ltp1 = float(cfg.get("info", "nifty_risk_H_ltp1")) # 30.0
+nifty_risk_H_ltp2 = float(cfg.get("info", "nifty_risk_H_ltp2")) # 60.0
+nifty_risk_H_ltp3 = float(cfg.get("info", "nifty_risk_H_ltp3")) # 90.0
+nifty_risk_H_ltp4 = float(cfg.get("info", "nifty_risk_H_ltp4")) # 120.0
+nifty_risk_H_ltp5 = float(cfg.get("info", "nifty_risk_H_ltp5")) # 150.0
 
-sensex_ce_max_price_limit = float(cfg.get("info", "sensex_ce_max_price_limit")) # 30
-sensex_pe_max_price_limit = float(cfg.get("info", "sensex_pe_max_price_limit")) # 30
-sensex_ltp1 = float(cfg.get("info", "sensex_ltp1")) # 50.0
-sensex_ltp2 = float(cfg.get("info", "sensex_ltp2")) # 100.0
-sensex_ltp3 = float(cfg.get("info", "sensex_ltp3")) # 150.0
-sensex_ltp4 = float(cfg.get("info", "sensex_ltp4")) # 200.0
-sensex_ltp5 = float(cfg.get("info", "sensex_ltp5")) # 250.0
+# Nifty Values for risk_profile Medium
+nifty_ce_max_price_limit_risk_M = float(cfg.get("info", "nifty_ce_max_price_limit_risk_M")) # 15
+nifty_pe_max_price_limit_risk_M = float(cfg.get("info", "nifty_pe_max_price_limit_risk_M")) # 15
+nifty_risk_M_ltp1 = float(cfg.get("info", "nifty_risk_M_ltp1")) # 30.0
+nifty_risk_M_ltp2 = float(cfg.get("info", "nifty_risk_M_ltp2")) # 60.0
+nifty_risk_M_ltp3 = float(cfg.get("info", "nifty_risk_M_ltp3")) # 90.0
+nifty_risk_M_ltp4 = float(cfg.get("info", "nifty_risk_M_ltp4")) # 120.0
+nifty_risk_M_ltp5 = float(cfg.get("info", "nifty_risk_M_ltp5")) # 150.0
+
+# Nifty Values for risk_profile Low
+nifty_ce_max_price_limit_risk_L = float(cfg.get("info", "nifty_ce_max_price_limit_risk_L")) # 15
+nifty_pe_max_price_limit_risk_L = float(cfg.get("info", "nifty_pe_max_price_limit_risk_L")) # 15
+nifty_risk_L_ltp1 = float(cfg.get("info", "nifty_risk_L_ltp1")) # 30.0
+nifty_risk_L_ltp2 = float(cfg.get("info", "nifty_risk_L_ltp2")) # 60.0
+nifty_risk_L_ltp3 = float(cfg.get("info", "nifty_risk_L_ltp3")) # 90.0
+nifty_risk_L_ltp4 = float(cfg.get("info", "nifty_risk_L_ltp4")) # 120.0
+nifty_risk_L_ltp5 = float(cfg.get("info", "nifty_risk_L_ltp5")) # 150.0
+
+# sensex Values for risk_profile High
+sensex_ce_max_price_limit_risk_H = float(cfg.get("info", "sensex_ce_max_price_limit_risk_H")) # 15
+sensex_pe_max_price_limit_risk_H = float(cfg.get("info", "sensex_pe_max_price_limit_risk_H")) # 15
+sensex_risk_H_ltp1 = float(cfg.get("info", "sensex_risk_H_ltp1")) # 30.0
+sensex_risk_H_ltp2 = float(cfg.get("info", "sensex_risk_H_ltp2")) # 60.0
+sensex_risk_H_ltp3 = float(cfg.get("info", "sensex_risk_H_ltp3")) # 90.0
+sensex_risk_H_ltp4 = float(cfg.get("info", "sensex_risk_H_ltp4")) # 120.0
+sensex_risk_H_ltp5 = float(cfg.get("info", "sensex_risk_H_ltp5")) # 150.0
+
+# sensex Values for risk_profile Medium
+sensex_ce_max_price_limit_risk_M = float(cfg.get("info", "sensex_ce_max_price_limit_risk_M")) # 15
+sensex_pe_max_price_limit_risk_M = float(cfg.get("info", "sensex_pe_max_price_limit_risk_M")) # 15
+sensex_risk_M_ltp1 = float(cfg.get("info", "sensex_risk_M_ltp1")) # 30.0
+sensex_risk_M_ltp2 = float(cfg.get("info", "sensex_risk_M_ltp2")) # 60.0
+sensex_risk_M_ltp3 = float(cfg.get("info", "sensex_risk_M_ltp3")) # 90.0
+sensex_risk_M_ltp4 = float(cfg.get("info", "sensex_risk_M_ltp4")) # 120.0
+sensex_risk_M_ltp5 = float(cfg.get("info", "sensex_risk_M_ltp5")) # 150.0
+
+# sensex Values for risk_profile Low
+sensex_ce_max_price_limit_risk_L = float(cfg.get("info", "sensex_ce_max_price_limit_risk_L")) # 15
+sensex_pe_max_price_limit_risk_L = float(cfg.get("info", "sensex_pe_max_price_limit_risk_L")) # 15
+sensex_risk_L_ltp1 = float(cfg.get("info", "sensex_risk_L_ltp1")) # 30.0
+sensex_risk_L_ltp2 = float(cfg.get("info", "sensex_risk_L_ltp2")) # 60.0
+sensex_risk_L_ltp3 = float(cfg.get("info", "sensex_risk_L_ltp3")) # 90.0
+sensex_risk_L_ltp4 = float(cfg.get("info", "sensex_risk_L_ltp4")) # 120.0
+sensex_risk_L_ltp5 = float(cfg.get("info", "sensex_risk_L_ltp5")) # 150.0
 
 
 short_strangle_time = int(cfg.get("info", "short_strangle_time"))   # 925
