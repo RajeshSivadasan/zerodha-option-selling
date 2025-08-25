@@ -7,7 +7,7 @@
 # carry_till_expiry_price ? Do we really need this setting? What is the tradeoff?
 # Autoupdate latest version from github using wget and rawurl of this script from github 
 
-# 1.4.3 Impemented risk profiles for nifty and sensex options
+# 1.4.3 Impemented risk profiles for nifty and sensex options and fixed risk profile bug
 version = "1.4.3"
 # Kite bypass api video (from TradeViaPython)
 # https://youtu.be/dLtWgpjsWdk?si=cPsQJpd0f1zkE4-N
@@ -1389,6 +1389,7 @@ for section in cfg.sections():
         user['bank_opt_base_lot'] = int(cfg.get(section, "bank_opt_base_lot"))
         user['auto_profit_booking'] = int(cfg.get(section, "auto_profit_booking"))
         user['sensex_opt_base_lot'] = int(cfg.get(section, "sensex_opt_base_lot"))
+        user['risk_profile'] = cfg.get(section, "risk_profile")   # H | M | L
 
 
 
@@ -1526,6 +1527,7 @@ lst_sensex_opt = df_BFO[ ((df_BFO.strike>=sensex_atm-3000) & (df_BFO.strike<=sen
 # Test Area
 
 # for kiteuser in kite_users:
+#     place_BSE_option_orders_fixed(kiteuser)
 #     book_profit_eod(kiteuser) 
 
 
