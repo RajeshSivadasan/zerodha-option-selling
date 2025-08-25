@@ -17,5 +17,5 @@ Zerodha Kite python based Multi user option selling Algo:
 <i>Note:</i> Set <b>profit_target_perc</b> to higher percentage (e.g 10) if profit needs to be manually booked and instead of getting booked by the algo.
 5. The algo runs in a loop and processes the orders/books profits/loss after every x seconds as specified in the <b>interval_seconds</b> parameter. Default value set to 30 seconds.   
 6. The <b>option_sell_type</b> parameter can be set to CE or PE or BOTH based on your understanding on the Market direction. If set to CE only calls will be sold, and if set to PE only puts will be sold and if set to BOTH , both calls and puts will be sold as strangle. Default setting is BOTH to make it a neutral strategy. (this feature is obsolete now)
-7. Risk profile implemnted at user level as High, Medium and Low, parameters of which can be modified in the .ini file as needed. 
+7. Risk profile implemented at user level as High, Medium and Low, parameters of which can be modified in the .ini file as needed. 
 8. For getting the updates in Telegram chat, create a telegram bot using the botfather and ensure to start the bot. Specify the bot token in the .ini file with bot prefix and also specify your telegram chat id.
